@@ -15,7 +15,7 @@ permissions:
 jobs:
   cla:
     name: CLA Assistant
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Mint CLA bot token
         id: cla-token
