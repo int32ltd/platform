@@ -7,10 +7,23 @@ contract — while letting the platform team swap the underlying implementation
 without touching developer-facing config, and letting service/code ownership move
 between teams without re-provisioning access in every tool by hand.
 
-Diagram: [`abstraction-layers.drawio`](./abstraction-layers.drawio) — open in
-[diagrams.net](https://app.diagrams.net) or the VS Code Draw.io extension.
-It has three pages: *Capability Abstraction Layers*, *C4 Container View
-(technology-agnostic)*, and *System layers* (the full capability map).
+## Diagrams
+
+The diagrams are exported as PNGs with the draw.io source embedded, so they can
+be opened and edited directly in [diagrams.net](https://app.diagrams.net) or
+the VS Code Draw.io extension — no separate `.drawio` file is needed.
+
+### Capability Abstraction Layers
+
+![Capability Abstraction Layers](./Capability%20Abstraction%20Layers.drawio.png)
+
+### C4 Container View (technology-agnostic)
+
+![C4 Container View (technology-agnostic)](./C4%20Container%20View%20%28technology-agnostic%29.drawio.png)
+
+### System layers (the full capability map)
+
+![System layers](./System%20layers.drawio.png)
 
 This doc set follows the [Diátaxis](https://diataxis.fr) framework — four
 documents, each answering a different kind of question:
