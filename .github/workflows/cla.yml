@@ -40,7 +40,7 @@ jobs:
           path-to-document: https://github.com/${{ github.repository }}/blob/main/CLA.md
           branch: cla-signatures
           create-file-commit-message: 'chore: create CLA signature file'
-          signed-commit-message: 'chore: $contributorName has signed the CLA in $owner/$repo#$pullRequestNo'
+          signed-commit-message: 'chore: $contributorName has signed the CLA'
           custom-notsigned-prcomment: >-
             Thank you for your pull request. Before we can merge it, you need to
             sign our [Contributor License Agreement](https://github.com/${{ github.repository }}/blob/main/CLA.md).
