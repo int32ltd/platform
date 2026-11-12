@@ -1,0 +1,9 @@
+# Golden-path request — vendor-neutral. References the contract, never a vendor.
+capability: observability
+emit-metric:
+  name: request_latency_ms
+  type: histogram
+define-alert:
+  metric: request_latency_ms
+  condition: "p99 > 300ms"
+  severity: page

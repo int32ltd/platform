@@ -1,0 +1,13 @@
+# Binding Policy — the ONLY file in this demo allowed to name a vendor.
+# Evaluated top-to-bottom, first match wins. Must end in a */*/* default.
+kind: BindingPolicy
+capability: observability
+rules:
+  - match: { tenant: "*", environment: production }
+    provider: datadog
+  - match: { tenant: my-org, environment: "*" }
+    provider: dynatrace
+  - match: { tenant: other-org, environment: "*" }
+    provider: datadog
+  - match: { tenant: "*", environment: "*" }
+    provider: datadog

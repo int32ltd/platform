@@ -1,0 +1,409 @@
+<mxfile host="Electron" pages="3">
+  <diagram id="abstraction-layers" name="Capability Abstraction Layers">
+    <mxGraphModel dx="2384" dy="1060" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1420" pageHeight="840" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="l1" parent="1" style="swimlane;startSize=30;rounded=1;html=1;whiteSpace=wrap;fontStyle=1;fillColor=#e1d5e7;strokeColor=#9673a6;" value="Developer Interface" vertex="1">
+          <mxGeometry height="90" width="1438" x="20" y="20" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_1" parent="l1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;fontStyle=1;" value="Platform CLI / API / MCP servers (primary interface)" vertex="1">
+          <mxGeometry height="40" width="360" x="20" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_2" parent="l1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;dashed=1;" value="Human portal UI — optional, not a dependency of this architecture" vertex="1">
+          <mxGeometry height="40" width="360" x="546" y="37" as="geometry" />
+        </mxCell>
+        <mxCell id="l1_3" parent="l1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Golden-path templates" vertex="1">
+          <mxGeometry height="40" width="360" x="1057" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="l2" parent="1" style="swimlane;startSize=30;rounded=1;html=1;whiteSpace=wrap;fontStyle=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="Capability Contracts — provisioning-time: OAM/KubeVela, schema in KCL/CUE  ·  runtime-callable: WIT/wasmCloud" vertex="1">
+          <mxGeometry height="90" width="1441" x="20" y="180" as="geometry" />
+        </mxCell>
+        <mxCell id="l2_1" parent="l2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Observability" vertex="1">
+          <mxGeometry height="40" width="170" x="20" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="l2_2" parent="l2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="CI/CD Pipeline (Dagger)" vertex="1">
+          <mxGeometry height="40" width="170" x="280" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="l2_3" parent="l2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Database" vertex="1">
+          <mxGeometry height="40" width="170" x="509" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="l2_4" parent="l2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="Secrets (WIT, runtime-callable)" vertex="1">
+          <mxGeometry height="40" width="170" x="1242" y="37" as="geometry" />
+        </mxCell>
+        <mxCell id="l2_6" parent="l2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Identity Provider" vertex="1">
+          <mxGeometry height="40" width="170" x="738" y="37" as="geometry" />
+        </mxCell>
+        <mxCell id="l2_5" parent="l2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Ingress &amp; DNS" vertex="1">
+          <mxGeometry height="40" width="170" x="990" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="l3" parent="1" style="swimlane;startSize=30;rounded=1;html=1;whiteSpace=wrap;fontStyle=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="Policy &amp; Ownership Graph  —  source of truth for who owns / may access what  (DataHub + OpenFGA)" vertex="1">
+          <mxGeometry height="90" width="1450" x="20" y="340" as="geometry" />
+        </mxCell>
+        <mxCell id="l3_1" parent="l3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;fontStyle=1;" value="DataHub: entity + aspect graph, Kafka ingestion from every source" vertex="1">
+          <mxGeometry height="40" width="270" x="20" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="l3_2" parent="l3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;fontStyle=1;" value="OpenFGA: relation tuples, access decisions" vertex="1">
+          <mxGeometry height="40" width="270" x="558" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="l3_3" parent="l3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Binding policy (git: tenant/env/region -&gt; provider)" vertex="1">
+          <mxGeometry height="40" width="270" x="862" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="l3_4" parent="l3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;dashed=1;fontSize=11;" value="Audit log = DataHub MCL events + Timeline API (not a separate system)" vertex="1">
+          <mxGeometry height="40" width="270" x="1147" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="l4" parent="1" style="swimlane;startSize=30;rounded=1;html=1;whiteSpace=wrap;fontStyle=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="Provider Adapters &amp; Sync Controllers" vertex="1">
+          <mxGeometry height="90" width="1463" x="20" y="500" as="geometry" />
+        </mxCell>
+        <mxCell id="l4_1" parent="l4" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Crossplane Composition Functions (KCL/CUE) — infra, data, network" vertex="1">
+          <mxGeometry height="40" width="270" x="20" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="l4_2" parent="l4" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Dagger Engine (GraphQL API) — CI/CD pipeline execution" vertex="1">
+          <mxGeometry height="40" width="270" x="355" y="37" as="geometry" />
+        </mxCell>
+        <mxCell id="l4_4" parent="l4" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="IAM sync controllers (Kafka consumer → OpenFGA Write → vendor IAM API)" vertex="1">
+          <mxGeometry height="40" width="270" x="804" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="l4_3" parent="l4" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="wasmCloud capability providers (wRPC) — runtime-callable" vertex="1">
+          <mxGeometry height="40" width="270" x="1146" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="l5" parent="1" style="swimlane;startSize=30;rounded=1;html=1;whiteSpace=wrap;fontStyle=1;fillColor=#f8cecc;strokeColor=#b85450;" value="Concrete Vendor Implementations (named only here and in the Binding policy)" vertex="1">
+          <mxGeometry height="90" width="1466" x="20" y="660" as="geometry" />
+        </mxCell>
+        <mxCell id="l5_1" parent="l5" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Datadog / Dynatrace / Grafana" vertex="1">
+          <mxGeometry height="40" width="170" x="20" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="l5_2" parent="l5" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="GH Actions / Jenkins / Argo WF (thin trigger → dagger call)" vertex="1">
+          <mxGeometry height="40" width="170" x="405" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="l5_3" parent="l5" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="RDS / Cloud SQL / self-hosted" vertex="1">
+          <mxGeometry height="40" width="170" x="634" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="l5_4" parent="l5" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Vault / AWS / GCP secrets mgr" vertex="1">
+          <mxGeometry height="40" width="170" x="863" y="38" as="geometry" />
+        </mxCell>
+        <mxCell id="l5_5" parent="l5" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="NGINX/Istio + Route53/CloudDNS" vertex="1">
+          <mxGeometry height="40" width="170" x="1064" y="38" as="geometry" />
+        </mxCell>
+        <mxCell id="l5_6" parent="l5" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Okta / Entra ID / Google WS" vertex="1">
+          <mxGeometry height="40" width="170" x="1268" y="38" as="geometry" />
+        </mxCell>
+        <mxCell id="l6" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;dashed=1;" value="Vendor-native IAM / RBAC (AWS IAM, GitHub Teams, Datadog RBAC, Okta Groups) — generated &amp; reconciled, never edited directly" vertex="1">
+          <mxGeometry height="50" width="1470" x="20" y="829" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" edge="1" parent="1" source="l1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" target="l2" value="OAM Application CRD applied via Kubernetes API (kubectl-equivalent)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" edge="1" parent="1" source="l2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" target="l3" value="admission webhook → OpenFGA Check (gRPC, sync)">
+          <mxGeometry relative="1" x="0.0047" as="geometry">
+            <Array as="points">
+              <mxPoint x="740.5" y="310.89" />
+              <mxPoint x="740.5" y="310.89" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e3" edge="1" parent="1" source="l3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" target="l4" value="controller reconcile loop reads Binding Policy via K8s API watch (async)">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="745" y="482.94" />
+              <mxPoint x="745" y="482.94" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e4" edge="1" parent="1" source="l4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" target="l5" value="adapter calls vendor&#39;s own REST/gRPC API (not abstracted here)">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="997.13" y="629.73" />
+              <mxPoint x="997.13" y="629.73" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e5" edge="1" parent="1" source="l3_1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;dashed=1;strokeColor=#82b366;" target="l6" value="Kafka topic MetadataChangeLog_v1 → sync job&amp;nbsp;&lt;div&gt;→ OpenFGA Write (gRPC) → IAM sync controller&amp;nbsp;&lt;/div&gt;&lt;div&gt;→ vendor IAM API, async&lt;/div&gt;">
+          <mxGeometry relative="1" x="0.0846" y="6" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="-118.2" y="400" />
+              <mxPoint x="-118.2" y="854" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e6" edge="1" parent="1" source="l3_1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#82b366;" target="l3_2" value="Kafka MCL → OpenFGA Write (gRPC)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" edge="1" parent="1" source="l2_4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;dashed=1;strokeColor=#d6b656;exitX=1;exitY=0.5;" target="l4_3" value="wasmCloud link definition&amp;nbsp;&lt;div&gt;(component ↔ provider);&amp;nbsp;&lt;/div&gt;&lt;div&gt;wRPC calls at runtime,&amp;nbsp;&lt;/div&gt;&lt;div&gt;bypassing the provisioning-time reconcile path&lt;/div&gt;">
+          <mxGeometry relative="1" x="0.0054" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="1610" y="237" />
+              <mxPoint x="1610" y="560" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e8" edge="1" parent="1" source="l4_2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" target="l5_2" value="CI runner&#39;s native webhook invokes dagger call against the Engine&#39;s local GraphQL API">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="c4-container-agnostic" name="C4 Container View (technology-agnostic)">
+    <mxGraphModel dx="2387" dy="1275" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1200" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="p1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#08427B;strokeColor=#052E56;fontColor=#ffffff;align=center;verticalAlign=middle;fontSize=12;" value="Developer&#xa;[Person]&#xa;&#xa;Submits a capability request for their service" vertex="1">
+          <mxGeometry height="110" width="220" x="120" y="22" as="geometry" />
+        </mxCell>
+        <mxCell id="p2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#08427B;strokeColor=#052E56;fontColor=#ffffff;align=center;verticalAlign=middle;fontSize=12;" value="Platform Engineer&#xa;[Person]&#xa;&#xa;Defines contracts, ownership rules, and provider adapters" vertex="1">
+          <mxGeometry height="110" width="220" x="1045" y="4" as="geometry" />
+        </mxCell>
+        <mxCell id="boundary" parent="1" style="rounded=0;whiteSpace=wrap;html=1;dashed=1;fillColor=none;strokeColor=#666666;verticalAlign=top;align=left;spacing=10;fontColor=#666666;fontStyle=2;fontSize=12;" value="Internal Developer Platform [Software System boundary]" vertex="1">
+          <mxGeometry height="474" width="1952" x="60" y="180" as="geometry" />
+        </mxCell>
+        <mxCell id="c1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#438DD5;strokeColor=#2E6295;fontColor=#ffffff;align=center;verticalAlign=middle;fontSize=12;" value="Interface Layer&#xa;[Container]&#xa;&#xa;Accepts capability requests; the only part developers interact with directly" vertex="1">
+          <mxGeometry height="100" width="260" x="100" y="230" as="geometry" />
+        </mxCell>
+        <mxCell id="c2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#438DD5;strokeColor=#2E6295;fontColor=#ffffff;align=center;verticalAlign=middle;fontSize=12;" value="Capability Contract&#xa;[Container]&#xa;&#xa;Defines the vendor-neutral shape of each capability a service may request" vertex="1">
+          <mxGeometry height="100" width="260" x="100" y="486" as="geometry" />
+        </mxCell>
+        <mxCell id="c3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#438DD5;strokeColor=#2E6295;fontColor=#ffffff;align=center;verticalAlign=middle;fontSize=12;" value="Policy &amp; Ownership Graph&#xa;[Container]&#xa;&#xa;Holds who owns what, and who may do what to it; the one source of truth for access decisions" vertex="1">
+          <mxGeometry height="100" width="260" x="689" y="482" as="geometry" />
+        </mxCell>
+        <mxCell id="c4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#438DD5;strokeColor=#2E6295;fontColor=#ffffff;align=center;verticalAlign=middle;fontSize=12;" value="Provider Adapter&#xa;[Container]&#xa;&#xa;Realizes a capability contract against one specific backend; the only place that knows which backend" vertex="1">
+          <mxGeometry height="100" width="260" x="1748" y="476" as="geometry" />
+        </mxCell>
+        <mxCell id="c5" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#438DD5;strokeColor=#2E6295;fontColor=#ffffff;align=center;verticalAlign=middle;fontSize=12;" value="Binding Policy&#xa;[Container]&#xa;&#xa;Decides which adapter fulfills a contract, per tenant / environment / region" vertex="1">
+          <mxGeometry height="100" width="260" x="1181" y="478" as="geometry" />
+        </mxCell>
+        <mxCell id="ext1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#999999;strokeColor=#6B6B6B;fontColor=#ffffff;align=center;verticalAlign=middle;fontSize=12;" value="External Provider&#xa;[Software System]&#xa;&#xa;One of many backends capable of fulfilling a given capability contract" vertex="1">
+          <mxGeometry height="110" width="240" x="1191" y="851" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" edge="1" parent="1" source="p1" style="html=1;endArrow=block;fontSize=11;" target="c1" value="submits a capability request">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" edge="1" parent="1" source="p2" style="html=1;endArrow=block;fontSize=11;" target="c2" value="defines">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" edge="1" parent="1" source="p2" style="html=1;endArrow=block;fontSize=11;" target="c3" value="declares ownership and access rules">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" edge="1" parent="1" source="p2" style="html=1;endArrow=block;fontSize=11;" target="c4" value="implements">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" edge="1" parent="1" source="c1" style="html=1;endArrow=block;fontSize=11;" target="c2" value="validates request against">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" edge="1" parent="1" source="c2" style="html=1;endArrow=block;fontSize=11;" target="c3" value="checked against ownership and access policy">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" edge="1" parent="1" source="c3" style="html=1;endArrow=block;fontSize=11;" target="c5" value="consults">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" edge="1" parent="1" source="c5" style="html=1;endArrow=block;fontSize=11;" target="c4" value="selects which adapter fulfills the request">
+          <mxGeometry relative="1" x="-0.0151" y="2" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e9" edge="1" parent="1" source="c4" style="html=1;endArrow=block;fontSize=11;" target="ext1" value="realizes the capability against">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e10" edge="1" parent="1" source="c3" style="html=1;endArrow=block;dashed=1;fontSize=11;" target="ext1" value="projects ownership and access decisions outward (one-way, generated state)">
+          <mxGeometry relative="1" x="0.0079" y="5" as="geometry">
+            <mxPoint x="-1" as="offset" />
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="8izWx2ehIubB4u9W78Mb" name="System layers">
+    <mxGraphModel dx="3831" dy="1433" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="7kPB3LLekYngKyW_7JSf-1" parent="1" style="swimlane;startSize=30;rounded=1;html=1;whiteSpace=wrap;fontStyle=1;fillColor=#e1d5e7;strokeColor=#9673a6;" value="Developer Interface" vertex="1">
+          <mxGeometry height="90" width="940" x="-110" y="470" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-2" parent="7kPB3LLekYngKyW_7JSf-1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Developer portal / software catalog" vertex="1">
+          <mxGeometry height="40" width="223" x="10" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-3" parent="7kPB3LLekYngKyW_7JSf-1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Documentation &amp; golden-path guides" vertex="1">
+          <mxGeometry height="40" width="223" x="242" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-4" parent="7kPB3LLekYngKyW_7JSf-1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Platform API / CLI" vertex="1">
+          <mxGeometry height="40" width="223" x="474" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-5" parent="7kPB3LLekYngKyW_7JSf-1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="MCP servers (AI-assisted developer access)" vertex="1">
+          <mxGeometry height="40" width="223" x="706" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-6" parent="1" style="swimlane;startSize=30;rounded=1;html=1;whiteSpace=wrap;fontStyle=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="Tenancy &amp; Environments" vertex="1">
+          <mxGeometry height="390" width="220" x="-106" y="722" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-7" parent="7kPB3LLekYngKyW_7JSf-6" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="SDLC Environments" vertex="1">
+          <mxGeometry height="40" width="180" x="20" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-8" parent="7kPB3LLekYngKyW_7JSf-6" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Tenant / team onboarding" vertex="1">
+          <mxGeometry height="40" width="180" x="20" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-9" parent="7kPB3LLekYngKyW_7JSf-6" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Quotas &amp; resource limits" vertex="1">
+          <mxGeometry height="40" width="180" x="20" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-10" parent="7kPB3LLekYngKyW_7JSf-6" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Ephemeral / preview environments" vertex="1">
+          <mxGeometry height="40" width="180" x="20" y="190" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-11" parent="1" style="swimlane;startSize=30;rounded=1;html=1;whiteSpace=wrap;fontStyle=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="Build &amp; Delivery" vertex="1">
+          <mxGeometry height="390" width="220" x="134" y="722" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-12" parent="7kPB3LLekYngKyW_7JSf-11" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Source control" vertex="1">
+          <mxGeometry height="40" width="180" x="20" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-13" parent="7kPB3LLekYngKyW_7JSf-11" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="CI pipelines" vertex="1">
+          <mxGeometry height="40" width="180" x="20" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-14" parent="7kPB3LLekYngKyW_7JSf-11" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Artifact &amp; container registry" vertex="1">
+          <mxGeometry height="40" width="180" x="20" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-15" parent="7kPB3LLekYngKyW_7JSf-11" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="CD / GitOps" vertex="1">
+          <mxGeometry height="40" width="180" x="20" y="190" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-16" parent="7kPB3LLekYngKyW_7JSf-11" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Infrastructure provisioning (IaC)" vertex="1">
+          <mxGeometry height="40" width="180" x="20" y="240" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-17" parent="7kPB3LLekYngKyW_7JSf-11" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Golden-path templates" vertex="1">
+          <mxGeometry height="40" width="180" x="20" y="290" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-18" parent="7kPB3LLekYngKyW_7JSf-11" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Feature flags / progressive delivery" vertex="1">
+          <mxGeometry height="40" width="180" x="20" y="340" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-19" parent="1" style="swimlane;startSize=30;rounded=1;html=1;whiteSpace=wrap;fontStyle=1;fillColor=#f8cecc;strokeColor=#b85450;" value="Runtime &amp; Compute" vertex="1">
+          <mxGeometry height="390" width="220" x="374" y="722" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-20" parent="7kPB3LLekYngKyW_7JSf-19" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Compute Provider" vertex="1">
+          <mxGeometry height="40" width="180" x="20" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-21" parent="7kPB3LLekYngKyW_7JSf-19" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Autoscaling" vertex="1">
+          <mxGeometry height="40" width="180" x="20" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-22" parent="7kPB3LLekYngKyW_7JSf-19" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Batch / scheduled jobs" vertex="1">
+          <mxGeometry height="40" width="180" x="20" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-23" parent="7kPB3LLekYngKyW_7JSf-19" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Serverless / functions" vertex="1">
+          <mxGeometry height="40" width="180" x="20" y="190" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-24" parent="1" style="swimlane;startSize=30;rounded=1;html=1;whiteSpace=wrap;fontStyle=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="Networking &amp; Traffic" vertex="1">
+          <mxGeometry height="390" width="220" x="614" y="722" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-25" parent="7kPB3LLekYngKyW_7JSf-24" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="DNS Management" vertex="1">
+          <mxGeometry height="40" width="180" x="20" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-26" parent="7kPB3LLekYngKyW_7JSf-24" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Ingress" vertex="1">
+          <mxGeometry height="40" width="180" x="20" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-27" parent="7kPB3LLekYngKyW_7JSf-24" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="API Gateway" vertex="1">
+          <mxGeometry height="40" width="180" x="20" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-28" parent="7kPB3LLekYngKyW_7JSf-24" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Certificate Manager" vertex="1">
+          <mxGeometry height="40" width="180" x="20" y="190" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-29" parent="7kPB3LLekYngKyW_7JSf-24" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Service mesh / mTLS / discovery" vertex="1">
+          <mxGeometry height="40" width="180" x="20" y="240" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-30" parent="7kPB3LLekYngKyW_7JSf-24" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Network policy &amp; egress control" vertex="1">
+          <mxGeometry height="40" width="180" x="20" y="290" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-31" parent="7kPB3LLekYngKyW_7JSf-24" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="CDN / WAF / DDoS protection" vertex="1">
+          <mxGeometry height="40" width="180" x="20" y="340" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-32" parent="1" style="swimlane;startSize=30;rounded=1;html=1;whiteSpace=wrap;fontStyle=1;fillColor=#d0cee2;strokeColor=#56517e;" value="Data &amp; State" vertex="1">
+          <mxGeometry height="340" width="220" x="-106" y="1132" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-33" parent="7kPB3LLekYngKyW_7JSf-32" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="SQL Databases" vertex="1">
+          <mxGeometry height="40" width="180" x="20" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-34" parent="7kPB3LLekYngKyW_7JSf-32" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="NoSQL Databases" vertex="1">
+          <mxGeometry height="40" width="180" x="20" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-35" parent="7kPB3LLekYngKyW_7JSf-32" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Cache" vertex="1">
+          <mxGeometry height="40" width="180" x="20" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-36" parent="7kPB3LLekYngKyW_7JSf-32" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Object storage" vertex="1">
+          <mxGeometry height="40" width="180" x="20" y="190" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-37" parent="7kPB3LLekYngKyW_7JSf-32" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Messaging &amp; event streaming" vertex="1">
+          <mxGeometry height="40" width="180" x="20" y="240" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-38" parent="7kPB3LLekYngKyW_7JSf-32" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Backup &amp; restore" vertex="1">
+          <mxGeometry height="40" width="180" x="20" y="290" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-39" parent="1" style="swimlane;startSize=30;rounded=1;html=1;whiteSpace=wrap;fontStyle=1;fillColor=#f8cecc;strokeColor=#b85450;" value="Security &amp; Compliance" vertex="1">
+          <mxGeometry height="340" width="220" x="134" y="1132" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-40" parent="7kPB3LLekYngKyW_7JSf-39" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Secret Store" vertex="1">
+          <mxGeometry height="40" width="180" x="20" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-41" parent="7kPB3LLekYngKyW_7JSf-39" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Vulnerability scanning" vertex="1">
+          <mxGeometry height="40" width="180" x="20" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-42" parent="7kPB3LLekYngKyW_7JSf-39" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Supply-chain security (signing, SBOM)" vertex="1">
+          <mxGeometry height="40" width="180" x="20" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-43" parent="7kPB3LLekYngKyW_7JSf-39" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Runtime security / admission control" vertex="1">
+          <mxGeometry height="40" width="180" x="20" y="190" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-44" parent="7kPB3LLekYngKyW_7JSf-39" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Compliance reporting &amp; evidence" vertex="1">
+          <mxGeometry height="40" width="180" x="20" y="240" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-45" parent="1" style="swimlane;startSize=30;rounded=1;html=1;whiteSpace=wrap;fontStyle=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="Operations &amp; Reliability" vertex="1">
+          <mxGeometry height="340" width="220" x="374" y="1132" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-46" parent="7kPB3LLekYngKyW_7JSf-45" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Observability Stack" vertex="1">
+          <mxGeometry height="40" width="180" x="20" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-47" parent="7kPB3LLekYngKyW_7JSf-45" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Alerting &amp; on-call" vertex="1">
+          <mxGeometry height="40" width="180" x="20" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-48" parent="7kPB3LLekYngKyW_7JSf-45" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Incident management" vertex="1">
+          <mxGeometry height="40" width="180" x="20" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-49" parent="7kPB3LLekYngKyW_7JSf-45" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="SLOs / error budgets" vertex="1">
+          <mxGeometry height="40" width="180" x="20" y="190" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-50" parent="7kPB3LLekYngKyW_7JSf-45" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Disaster recovery" vertex="1">
+          <mxGeometry height="40" width="180" x="20" y="240" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-51" parent="1" style="swimlane;startSize=30;rounded=1;html=1;whiteSpace=wrap;fontStyle=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="Governance &amp; FinOps" vertex="1">
+          <mxGeometry height="340" width="220" x="614" y="1132" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-52" parent="7kPB3LLekYngKyW_7JSf-51" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Cost Explorer" vertex="1">
+          <mxGeometry height="40" width="180" x="20" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-53" parent="7kPB3LLekYngKyW_7JSf-51" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Ownership &amp; tagging" vertex="1">
+          <mxGeometry height="40" width="180" x="20" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-54" parent="7kPB3LLekYngKyW_7JSf-51" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Budgets &amp; cost alerts" vertex="1">
+          <mxGeometry height="40" width="180" x="20" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-55" parent="1" style="swimlane;startSize=30;rounded=1;html=1;whiteSpace=wrap;fontStyle=1;fillColor=#b1ddf0;strokeColor=#10739e;strokeWidth=2;" value="Identity &amp; Access — core, applies across all systems" vertex="1">
+          <mxGeometry height="100" width="940" x="-110" y="581" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-56" parent="7kPB3LLekYngKyW_7JSf-55" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Identity Provider" vertex="1">
+          <mxGeometry height="50" width="145" x="10" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-57" parent="7kPB3LLekYngKyW_7JSf-55" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;fontStyle=1;strokeWidth=2;" value="RBAC Model" vertex="1">
+          <mxGeometry height="50" width="145" x="165" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-58" parent="7kPB3LLekYngKyW_7JSf-55" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Workload / service identity" vertex="1">
+          <mxGeometry height="50" width="145" x="320" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-59" parent="7kPB3LLekYngKyW_7JSf-55" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Policy engine (policy-as-code)" vertex="1">
+          <mxGeometry height="50" width="145" x="475" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-60" parent="7kPB3LLekYngKyW_7JSf-55" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Access requests (JIT / break-glass)" vertex="1">
+          <mxGeometry height="50" width="145" x="630" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="7kPB3LLekYngKyW_7JSf-61" parent="7kPB3LLekYngKyW_7JSf-55" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;" value="Audit log" vertex="1">
+          <mxGeometry height="50" width="145" x="785" y="40" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

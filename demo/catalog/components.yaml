@@ -1,0 +1,6 @@
+# Ownership Graph — Component -> owner Team. The single source of truth;
+# vendor-native IAM is a generated projection of this, never hand-edited.
+components:
+  checkout-service:
+    owner: team-payments
+    capability-bindings: [observability]

@@ -1,0 +1,8 @@
+# Ownership Graph — Team -> granted capabilities (a flattened Team->Role->grants).
+teams:
+  team-payments:
+    grants: [observability]
+  team-checkout:
+    grants: [observability]
+  team-growth:
+    grants: []

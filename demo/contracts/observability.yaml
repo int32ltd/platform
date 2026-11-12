@@ -1,0 +1,11 @@
+# Capability Contract — vendor-neutral. No vendor name may appear here.
+kind: Capability
+name: observability
+version: v1
+verbs:
+  emit-metric:
+    required: [name, type]
+    optional: [labels]
+  define-alert:
+    required: [metric, condition, severity]
+    optional: []
