@@ -1,0 +1,64 @@
+name: Stale branch cleanup
+
+on:
+  schedule:
+    - cron: '0 3 * * 1' # Mondays 03:00 UTC
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Only list branches that would be deleted
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+  pull-requests: read
+
+env:
+  STALE_DAYS: 30
+  # Branches never deleted, one per line. cla-signatures is the CLA
+  # Assistant signature store: never merged, must live forever.
+  PROTECTED_BRANCHES: |
+    main
+    cla-signatures
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete stale branches
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}
+        run: |
+          set -euo pipefail
+          cutoff=$(date -u -d "-${STALE_DAYS} days" +%s)
+          default=$(gh api "repos/$REPO" --jq .default_branch)
+          open_pr_heads=$(gh pr list --repo "$REPO" --state open --limit 500 --json headRefName --jq '.[].headRefName')
+
+          is_protected() {
+            [ "$1" = "$default" ] && return 0
+            grep -qxF "$1" <<<"$PROTECTED_BRANCHES" && return 0
+            grep -qxF "$1" <<<"$open_pr_heads" && return 0
+            return 1
+          }
+
+          gh api --paginate "repos/$REPO/branches?per_page=100" \
+            --jq '.[] | "\(.name) \(.commit.sha)"' |
+          while read -r name sha; do
+            if is_protected "$name"; then
+              echo "keep   $name (protected or has open PR)"; continue
+            fi
+            last=$(gh api "repos/$REPO/commits/$sha" --jq .commit.committer.date)
+            last_s=$(date -u -d "$last" +%s)
+            if [ "$last_s" -ge "$cutoff" ]; then
+              echo "keep   $name (last commit $last)"; continue
+            fi
+            if [ "$DRY_RUN" = "true" ]; then
+              echo "would delete $name (last commit $last)"
+            else
+              gh api --method DELETE "repos/$REPO/git/refs/heads/$name"
+              echo "deleted $name (last commit $last)"
+            fi
+          done
