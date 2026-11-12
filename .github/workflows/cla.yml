@@ -17,6 +17,13 @@ jobs:
     name: CLA Assistant
     runs-on: ubuntu-latest
     steps:
+      - name: Mint CLA bot token
+        id: cla-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.CLA_APP_ID }}
+          private-key: ${{ secrets.CLA_APP_PRIVATE_KEY }}
+
       - name: CLA Assistant
         if: >-
           (github.event.comment.body == 'recheck' ||
@@ -25,6 +32,9 @@ jobs:
         uses: contributor-assistant/github-action@v2.6.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Used for writes to the cla-signatures branch. The branch ruleset
+          # only lets this app bypass the update restriction.
+          PERSONAL_ACCESS_TOKEN: ${{ steps.cla-token.outputs.token }}
         with:
           path-to-signatures: signatures/cla.json
           path-to-document: https://github.com/${{ github.repository }}/blob/main/CLA.md
