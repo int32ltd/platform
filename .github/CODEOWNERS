@@ -1,0 +1,4 @@
+# Default owner for everything in the repository.
+# Branch protection on main requires a review from a code owner,
+# so every PR must be approved by (or authored by) @int32ltd.
+*   @int32ltd
