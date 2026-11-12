@@ -2,7 +2,7 @@
 
 The resource-and-link store at the centre of the platform: ingested from
 many sources, queried by agents, reports, scorecards and self-service actions,
-with access derived from the graph itself (resource → owning team → AD group →
+with access derived from the graph itself (resource → owning team → identity group →
 member).
 
 - [design.md](./design.md) — data model, permission model, ingestion, query
