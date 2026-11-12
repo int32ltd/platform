@@ -12,9 +12,10 @@ goes one level deeper: the data model, the permission model, how data gets in,
 how it gets queried, and what is derived from it.
 
 The one requirement that shapes everything else: **permissions are part of the
-map.** An `ADGroup` is a resource like any other. Ownership is a link. Who
+map.** An identity group (from Entra ID, Okta, Zitadel, or any other identity
+provider) is a resource like any other. Ownership is a link. Who
 may see or act on a resource is *inferred from the graph* (resource → owning team
-→ backing AD group → members), never configured per resource by hand.
+→ backing identity group → members), never configured per resource by hand.
 
 Contents:
 
@@ -38,7 +39,7 @@ Contents:
 - Schema defined as data ("kinds"), so a new resource type or link is a
   config change, not a deploy.
 - Ownership inferred from links, and access derived from ownership plus
-  AD group membership. No per-resource ACLs.
+  identity-group membership. No per-resource ACLs.
 - Read path cheap enough that agents and dashboards hit the catalog, not the
   source systems.
 - Every change auditable: who/what changed which fact, when, from which source.
@@ -161,16 +162,16 @@ permission model depends on them.
 
 | Kind | What it is | Ingested from |
 |---|---|---|
-| `user` | A person or service principal | Entra ID / AD |
-| `ad_group` | A security group. Has `members: [user \| ad_group]` (nested groups keep their structure; flattening happens in the policy engine, not here) | Entra ID / AD |
-| `team` | The organisational unit that owns things. Has `backedBy: [ad_group]` (one or more) | Manual, HR system, or derived 1:1 from a naming convention on AD groups |
+| `user` | A person or service principal | Identity provider (Entra ID, Okta, Zitadel, ...) |
+| `identity_group` | A group whose membership the identity provider asserts. Has `members: [user \| identity_group]` (where the provider nests groups, nesting is kept; flattening happens in the policy engine, not here) | Identity provider |
+| `team` | The organisational unit that owns things. Has `backedBy: [identity_group]` (one or more) | Manual, HR system, or derived 1:1 from a naming convention on identity groups |
 | `kind` | Kind definitions themselves | Manual / git |
 | `action` | Self-service action definition (6.3) | Manual / git |
 | `action_run` | One invocation of an action | Action runner |
 | `scorecard` | Scorecard definition (6.1) | Manual / git |
 | `source` | An ingestion source and its mapping (4.2) | Manual / git |
 
-`team` is kept distinct from `ad_group` on purpose. Groups are an identity
+`team` is kept distinct from `identity_group` on purpose. Groups are an identity
 provider artefact: there are usually several per team (`eng-payments`,
 `eng-payments-oncall`, `payments-prod-deployers`), they get renamed, and
 ownership should not churn when IT reorganises the group tree. A team is the
@@ -197,7 +198,7 @@ the only place ownership logic lives. OpenFGA (section 3) receives
 `effectiveOwners` as plain tuples and does not re-derive it. The query layer
 filters on the same column. One implementation, three consumers.
 
-Example path: `aws_rds_instance:prod-checkout-db --component--> component:checkout-service --owner--> team:payments --backedBy--> ad_group:eng-payments --members--> user:alice`.
+Example path: `aws_rds_instance:prod-checkout-db --component--> component:checkout-service --owner--> team:payments --backedBy--> identity_group:eng-payments --members--> user:alice`.
 
 ### 2.5 Link integrity
 
@@ -217,7 +218,7 @@ Example path: `aws_rds_instance:prod-checkout-db --component--> component:checko
 ### 3.1 Principle
 
 Access is a function of the graph: a user can act on a resource when there is a
-path `resource → effectiveOwner team → backing AD group → (nested groups) →
+path `resource → effectiveOwner team → backing identity group → (nested groups) →
 user`, or when a kind-level or platform-level grant says so. There are no
 resource-level ACLs. Changing who can see or edit a service means changing a
 link (move the service to another team, add a group behind the team),
@@ -235,25 +236,25 @@ model
 
 type user
 
-type ad_group
+type identity_group
   relations
-    define member: [user, ad_group#member]      # nested groups, resolved by OpenFGA
+    define member: [user, identity_group#member]   # nested groups where the provider has them
 
 type team
   relations
-    define backed_by: [ad_group]
+    define backed_by: [identity_group]
     define member: member from backed_by
 
 type platform
   relations
-    define admin: [user, ad_group#member]
-    define auditor: [user, ad_group#member]     # read everything, change nothing
+    define admin: [user, identity_group#member]
+    define auditor: [user, identity_group#member]  # read everything, change nothing
 
 type kind
   relations
     define platform: [platform]
     define org_viewer: [user:*]                 # present only when visibility: org
-    define editor: [team#member, ad_group#member]   # kind-wide grants (rare)
+    define editor: [team#member, identity_group#member]   # kind-wide grants (rare)
     define admin: admin from platform
 
 type resource
@@ -275,21 +276,21 @@ type resource
 type action
   relations
     define kind: [kind]
-    define runner: [team#member, ad_group#member]   # optional narrowing, see 6.3
+    define runner: [team#member, identity_group#member]   # optional narrowing, see 6.3
 ```
 
 Tuples written by the catalog, from the example in 2.2:
 
 ```
-ad_group:eng-payments#member@user:alice
-ad_group:eng-payments#member@ad_group:eng-payments-leads#member
-team:payments#backed_by@ad_group:eng-payments
+identity_group:eng-payments#member@user:alice
+identity_group:eng-payments#member@identity_group:eng-payments-leads#member
+team:payments#backed_by@identity_group:eng-payments
 resource:component/checkout-service#kind@kind:component
 resource:component/checkout-service#owner@team:payments
 resource:aws_rds_instance/prod-checkout-db#owner@team:payments     # inherited, written by the resolver
 resource:aws_rds_instance/prod-checkout-db#kind@kind:aws_rds_instance
 kind:component#platform@platform:default
-platform:default#admin@ad_group:platform-engineering#member
+platform:default#admin@identity_group:platform-engineering#member
 ```
 
 Because the resource type is generic (`resource`, not one OpenFGA type per
@@ -334,18 +335,21 @@ supports either.
 | Scorecard / report read | Same as resource read; reports aggregate only over resources the caller can view |
 
 Agents are not special. An MCP server acts **on behalf of** the calling user
-(token exchange / on-behalf-of flow against Entra ID) and every catalog call
+(token exchange / on-behalf-of flow against the identity provider) and every catalog call
 carries that user's identity. An agent running unattended runs as a service
-principal that is itself a `user` resource in one or more AD groups, so the same
+principal that is itself a `user` resource in one or more identity groups, so the same
 rules apply and its reach is visible in the graph like anyone else's.
 
 ### 3.5 Group membership freshness
 
-Membership is the one fact where staleness is a security issue. The Entra ID
-source therefore runs two cadences: a full reconciliation (hourly) and a delta
-subscription (Graph change notifications, or delta queries every few minutes).
-Removal from a group propagates to OpenFGA within the delta interval; this
-bound is documented as an SLO and exposed on the `source:entra-id` resource.
+Membership is the one fact where staleness is a security issue. The identity
+provider source therefore runs two cadences: a full reconciliation (hourly) and
+an incremental feed every few minutes, using whatever the provider offers
+(Entra ID delta queries or Graph change notifications, Okta System Log or event
+hooks, Zitadel events API, LDAP persistent search or periodic diff). Removal
+from a group propagates to OpenFGA within the incremental interval; this bound
+is documented as an SLO and exposed on the provider's `source` resource, for
+example `source:entra-id` or `source:okta`.
 
 ---
 
@@ -357,7 +361,7 @@ A source is a connector plus a mapping. Expected first-wave sources:
 
 | Source | Kinds produced | Mode |
 |---|---|---|
-| Entra ID / AD | `user`, `ad_group`, group membership | full + delta (3.5) |
+| Identity provider (Entra ID, Okta, Zitadel, LDAP) | `user`, `identity_group`, group membership | full + delta (3.5) |
 | GitHub | `repository`, `component` (via a catalog file in the repo), CODEOWNERS → `owner` hint | webhook + nightly full |
 | Kubernetes (per cluster) | `k8s_cluster`, `k8s_namespace`, `k8s_workload`, `k8s_workload --component-->` via a label | watch + periodic resync |
 | AWS (per account) | `aws_account`, one `aws_*` kind per service, `--component-->` via tag | Config/CloudTrail events + daily full |
@@ -614,7 +618,7 @@ Decided in this document:
 
 - Kinds are data; a single generic OpenFGA `resource` type keeps the
   authorization model stable as kinds are added.
-- `team` is distinct from `ad_group`; teams own, groups grant membership.
+- `team` is distinct from `identity_group`; teams own, groups grant membership.
 - Ownership is inferred by one resolver and materialised; OpenFGA and the
   query filter both consume the result rather than re-deriving it.
 - Default visibility is owner-only, with per-kind `org` visibility and
@@ -628,7 +632,7 @@ Open, needing a decision from the platform owners:
    recommendation is `team`, `system`, `component` with sensitive properties
    redacted. Pure owner-only on everything makes dependency maps and
    cross-team reports mostly empty for ordinary users.
-2. **Team ↔ AD group convention.** Derive teams 1:1 from a group naming
+2. **Team ↔ identity group convention.** Derive teams 1:1 from a group naming
    pattern (zero manual work, brittle) or maintain `team` resources in git with
    an explicit `backedBy` list (small manual step, stable). Recommendation:
    git-maintained, with a report flagging groups matching the pattern that no
