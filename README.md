@@ -15,7 +15,7 @@ access in every tool by hand.
 | Path | What it is |
 |---|---|
 | [`docs/platform-abstraction/`](./docs/platform-abstraction/) | The design, written as a [Diátaxis](https://diataxis.fr) doc set: tutorial, how-to guides, reference, and explanation. Start at its [README](./docs/platform-abstraction/README.md). |
-| [`docs/service-catalog/`](./docs/service-catalog/) | Detailed design of the service catalog: blueprints, entities, relations, AD-group-derived permissions, ingestion, agent query surface. Start at its [README](./docs/service-catalog/README.md). |
+| [`docs/service-catalog/`](./docs/service-catalog/) | Detailed design of the service catalog: kinds, resources, links, AD-group-derived permissions, ingestion, agent query surface. Start at its [README](./docs/service-catalog/README.md). |
 | [`demo/`](./demo/) | A tiny Python simulation of the architecture. One capability (observability) modeled end to end with two fake providers. See the [demo README](./demo/README.md). |
 
 ## Quick start
