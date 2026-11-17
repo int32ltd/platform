@@ -11,5 +11,12 @@ member).
   — component diagram, exported from draw.io with the source embedded (open
   the PNG in diagrams.net to edit).
 
+- [ownership-demo.html](./ownership-demo.html) — an interactive model of the
+  design: a worked graph of people, identity groups, teams, systems, components
+  and real infrastructure (a GitHub repo, a Kubernetes workload, an SQS queue,
+  an RDS instance), with the ownership resolver, the visibility rules and the
+  OpenFGA tuples computed live. Change who owns what and watch access follow.
+  Open the file in a browser — no build, no dependencies, no network calls.
+
 This is the detailed design of Layer 3 in
 [`../platform-abstraction/`](../platform-abstraction/README.md).
