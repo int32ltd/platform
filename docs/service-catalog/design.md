@@ -164,7 +164,7 @@ permission model depends on them.
 |---|---|---|
 | `user` | A person or service principal | Identity provider (Entra ID, Okta, Zitadel, ...) |
 | `identity_group` | A group whose membership the identity provider asserts. Has `members: [user \| identity_group]` (where the provider nests groups, nesting is kept; flattening happens in the policy engine, not here) | Identity provider |
-| `team` | The organisational unit that owns things. Has `backedBy: [identity_group]` (one or more) | Manual, HR system, or derived 1:1 from a naming convention on identity groups |
+| `team` | The organisational unit that owns things. Has `backedBy: [identity_group]` (one or more) | HR system for the record, identity provider for membership, on-call tool for corroboration — never git (2.3.1) |
 | `kind` | Kind definitions themselves | Manual / git |
 | `action` | Self-service action definition (6.3) | Manual / git |
 | `action_run` | One invocation of an action | Action runner |
@@ -177,6 +177,65 @@ provider artefact: there are usually several per team (`eng-payments`,
 ownership should not churn when IT reorganises the group tree. A team is the
 stable thing resources point at; which groups back it is one link that can
 change.
+
+### 2.3.1 Where `team` and `system` come from
+
+A source is authoritative when someone else already maintains it for their own
+reasons and it costs *them* when it is wrong. Git passes that test for platform
+configuration — kinds, actions, scorecards, source mappings — which is code:
+reviewed, versioned, deployed, and broken loudly when wrong. It fails that test
+for organisational facts. A `teams.yaml` is a copy of the org chart that nobody's
+workflow depends on, so nobody notices when it rots — and the catalog would then
+be inferring ownership, and therefore access, from the stalest file in the
+repository.
+
+So `team` is not one source's record. It is assembled from three, each owning
+the facts it is genuinely responsible for:
+
+| Fact | Source | Why that one |
+|---|---|---|
+| existence, name, parent unit, cost centre, manager | HR system (Workday, Personio, HiBob, ...) | the organisation's own record of its units, with a stable `orgUnitId` to key on |
+| membership | identity provider (3.5) | already the source for `identity_group`; joined to the team by an org-unit attribute carried on the group, not by a name pattern |
+| who is accountable for production right now | on-call / incident tool (PagerDuty, Opsgenie, ...) | the one place where being wrong hurts within the hour, so it is the freshest thing in the organisation |
+
+`identity.keys: [orgUnitId]`, so the team survives a rename in any of the three.
+The catalog merges them with the ordinary provenance rules (4.4): HR owns the
+descriptive properties, the identity provider owns membership, the on-call tool
+owns the rota.
+
+The known weakness is that HR org units and engineering squads frequently do not
+match — HR models reporting lines, engineering works in squads that re-form
+faster than HR records them. Where the organisation models squads somewhere else
+(the on-call tool, a team directory), *that* tool is the spine and the HR system
+enriches it with hierarchy and cost centre. Which one is the spine is an
+organisation-specific choice (8.2); the rule that does not vary is that the
+spine is a system somebody else maintains for their own reasons.
+
+Git keeps at most the join between spine and groups, and only where neither side
+carries a usable cross-reference. That residue is measured, reported, and driven
+to zero rather than treated as the design. The reports that keep it honest
+(6.2): org units with no backing group, teams owning a tier-1 component with no
+rotation, on-call teams matching no catalog team, groups matching the org-unit
+pattern that no team references.
+
+**`system`** has no HR or identity equivalent — it is an architecture grouping,
+not an organisational one — so it is sourced differently again. Its membership is
+declared by the components themselves: the catalog file in each repository names
+the system it belongs to, exactly as a Kubernetes label names a component (4.3).
+GitHub is therefore the source, and the `system` resource is materialised from
+the union of those declarations, created on first reference by dangling-edge
+resolution (2.5) and flagged `meta.unmatched` until something claims it. Its
+descriptive properties — business name, domain, product owner — and its `owner`
+link come from the portfolio or product tool where the organisation runs one
+(Jira product hierarchy, ServiceNow business services, an architecture
+repository).
+
+Where no such tool exists, a system's `owner` is a catalog-owned override. That
+is legitimate: it is a fact with no other home, which section 1 already reserves
+to the catalog. The distinction worth holding onto is that **git holds overrides
+and platform configuration, never records** — and ownership-coverage reports
+should show what share of the map currently rests on overrides, because that
+share is the design's technical debt.
 
 ### 2.4 Ownership inference
 
@@ -362,12 +421,14 @@ A source is a connector plus a mapping. Expected first-wave sources:
 | Source | Kinds produced | Mode |
 |---|---|---|
 | Identity provider (Entra ID, Okta, Zitadel, LDAP) | `user`, `identity_group`, group membership | full + delta (3.5) |
-| GitHub | `repository`, `component` (via a catalog file in the repo), CODEOWNERS → `owner` hint | webhook + nightly full |
+| GitHub | `repository`, `component` (via a catalog file in the repo), the `system` each component declares, CODEOWNERS → `owner` hint | webhook + nightly full |
 | Kubernetes (per cluster) | `k8s_cluster`, `k8s_namespace`, `k8s_workload`, `k8s_workload --component-->` via a label | watch + periodic resync |
 | AWS (per account) | `aws_account`, one `aws_*` kind per service, `--component-->` via tag | Config/CloudTrail events + daily full |
 | Argo CD / CI | `deployment`, `pipeline_run` | webhook |
-| Datadog / PagerDuty | `monitor`, `oncall_schedule`, `incident` | webhook + periodic |
-| Manual / git | `team`, `system`, overrides, kinds, actions, scorecards | git push (reconciled on merge) |
+| HR system (Workday, Personio, HiBob, ...) | `team` org units: name, hierarchy, cost centre, manager (2.3.1) | nightly full, webhook where offered |
+| Datadog / PagerDuty / Opsgenie | `monitor`, `oncall_schedule`, `incident`, and the `team` rota it corroborates | webhook + periodic |
+| Portfolio / product tool (where one exists) | `system` properties and its `owner` link | periodic full |
+| Manual / git | kinds, actions, scorecards, source mappings, ownership overrides — *not* team or system records (2.3.1) | git push (reconciled on merge) |
 
 ### 4.2 Mapping
 
@@ -632,11 +693,15 @@ Open, needing a decision from the platform owners:
    recommendation is `team`, `system`, `component` with sensitive properties
    redacted. Pure owner-only on everything makes dependency maps and
    cross-team reports mostly empty for ordinary users.
-2. **Team ↔ identity group convention.** Derive teams 1:1 from a group naming
-   pattern (zero manual work, brittle) or maintain `team` resources in git with
-   an explicit `backedBy` list (small manual step, stable). Recommendation:
-   git-maintained, with a report flagging groups matching the pattern that no
-   team references.
+2. **Which system of record is the team spine** (2.3.1). HR org units give
+   coverage and stable ids but lag reorganisations and often do not match
+   engineering squads; the on-call tool is the freshest and the most meaningful
+   for ownership but covers only teams carrying production load. Recommendation:
+   HR system as the spine, joined to identity groups by an org-unit attribute on
+   the group, with drift reports against the on-call tool. This needs confirming
+   against the systems the organisation actually runs, and against whether its
+   groups carry an org-unit attribute at all — if they do not, the join table
+   lives in git as a measured, temporary residue rather than as the design.
 3. **Expression language** for mappings and scorecards: CEL or JQ. CEL is
    recommended for its type checking and sandboxing; JQ is more widely
    known.

@@ -1,0 +1,1167 @@
+<meta charset="utf-8">
+<title>Catalog Ownership Explorer</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root {
+    color-scheme: light;
+    --ground: #eef1f5;
+    --surface: #ffffff;
+    --surface-2: #f6f8fa;
+    --surface-3: #e9edf2;
+    --line: #d3dae2;
+    --line-soft: #e3e8ee;
+    --ink: #121820;
+    --ink-2: #4a5663;
+    --ink-3: #78838f;
+    --accent: #0d7a84;
+    --accent-ink: #085a62;
+    --accent-soft: #d6eced;
+    --owned: #1d7340;
+    --warn: #9c5a07;
+    --warn-soft: #fbeedb;
+    --deny: #ab382c;
+    --deny-soft: #fae6e3;
+    --aws: #8a5a0b;
+    --k8s: #2b5bb5;
+    --github: #44494f;
+    --idp: #6b4ea8;
+    --shadow: 0 1px 2px rgba(18, 24, 32, .06), 0 8px 24px -16px rgba(18, 24, 32, .25);
+    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans: "IBM Plex Sans", system-ui, -apple-system, Segoe UI, sans-serif;
+    --cond: "IBM Plex Sans Condensed", "IBM Plex Sans", system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --ground: #0e1319;
+      --surface: #161c24;
+      --surface-2: #1b222b;
+      --surface-3: #232b35;
+      --line: #2e3844;
+      --line-soft: #242c36;
+      --ink: #e7ecf2;
+      --ink-2: #a7b2bf;
+      --ink-3: #7c8794;
+      --accent: #3fb3bd;
+      --accent-ink: #7fd3da;
+      --accent-soft: #15353a;
+      --owned: #5cbd83;
+      --warn: #e0a95c;
+      --warn-soft: #3a2d15;
+      --deny: #e8897c;
+      --deny-soft: #3a1f1b;
+      --aws: #d9a95f;
+      --k8s: #7aa5ef;
+      --github: #aab3bd;
+      --idp: #b49ae8;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 10px 30px -18px rgba(0, 0, 0, .8);
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --ground: #0e1319;
+    --surface: #161c24;
+    --surface-2: #1b222b;
+    --surface-3: #232b35;
+    --line: #2e3844;
+    --line-soft: #242c36;
+    --ink: #e7ecf2;
+    --ink-2: #a7b2bf;
+    --ink-3: #7c8794;
+    --accent: #3fb3bd;
+    --accent-ink: #7fd3da;
+    --accent-soft: #15353a;
+    --owned: #5cbd83;
+    --warn: #e0a95c;
+    --warn-soft: #3a2d15;
+    --deny: #e8897c;
+    --deny-soft: #3a1f1b;
+    --aws: #d9a95f;
+    --k8s: #7aa5ef;
+    --github: #aab3bd;
+    --idp: #b49ae8;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 10px 30px -18px rgba(0, 0, 0, .8);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 13px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3 { margin: 0; text-wrap: balance; }
+  button { font: inherit; color: inherit; }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    font-weight: 500;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  code, .mono { font-family: var(--mono); }
+
+  /* ---------- shell ---------- */
+  .app {
+    display: grid;
+    grid-template-columns: 252px minmax(0, 1fr) 364px;
+    grid-template-rows: auto minmax(0, 1fr);
+    height: 100vh;
+    min-height: 680px;
+  }
+  header.top {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+    padding: 12px 20px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+  }
+  .brand { display: flex; flex-direction: column; gap: 1px; }
+  .brand h1 {
+    font-family: var(--cond);
+    font-size: 19px;
+    font-weight: 700;
+    letter-spacing: -.005em;
+  }
+  .brand .sub { font-size: 11.5px; color: var(--ink-3); }
+  .brand .sub a { color: var(--accent-ink); text-decoration: none; border-bottom: 1px solid var(--accent-soft); }
+
+  .viewer-bar { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+  .viewer-bar > .eyebrow { white-space: nowrap; }
+  .who { display: flex; gap: 0; border: 1px solid var(--line); border-radius: 3px; overflow: hidden; }
+  .who button {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+    padding: 5px 11px;
+    min-width: 92px;
+    background: var(--surface);
+    border: 0;
+    border-right: 1px solid var(--line-soft);
+    cursor: pointer;
+    text-align: left;
+    transition: background .12s;
+  }
+  .who button:last-child { border-right: 0; }
+  .who button:hover { background: var(--surface-2); }
+  .who button .n { font-size: 12px; font-weight: 500; }
+  .who button .r { font-family: var(--mono); font-size: 9px; color: var(--ink-3); letter-spacing: .04em; }
+  .who button[aria-pressed="true"] { background: var(--accent); }
+  .who button[aria-pressed="true"] .n,
+  .who button[aria-pressed="true"] .r { color: #fff; }
+  :root[data-theme="dark"] .who button[aria-pressed="true"] .n,
+  :root[data-theme="dark"] .who button[aria-pressed="true"] .r { color: #06181a; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .who button[aria-pressed="true"] .n,
+    :root:not([data-theme="light"]) .who button[aria-pressed="true"] .r { color: #06181a; }
+  }
+  .btn {
+    padding: 6px 12px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background .12s, border-color .12s;
+  }
+  .btn:hover:not(:disabled) { background: var(--surface-2); border-color: var(--ink-3); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 500; }
+  :root[data-theme="dark"] .btn.primary { color: #06181a; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .btn.primary { color: #06181a; } }
+  .btn.primary:hover:not(:disabled) { background: var(--accent-ink); border-color: var(--accent-ink); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn.sm { padding: 3px 8px; font-size: 11px; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  /* ---------- rail ---------- */
+  .rail {
+    background: var(--surface);
+    border-right: 1px solid var(--line);
+    overflow-y: auto;
+    padding: 0 0 24px;
+  }
+  .rail section { padding: 14px 16px; border-bottom: 1px solid var(--line-soft); }
+  .rail h2 { font-family: var(--cond); font-size: 13px; font-weight: 700; letter-spacing: .01em; margin-bottom: 8px; }
+
+  .tour-step { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+  .tour-step .num {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--accent-ink);
+    background: var(--accent-soft);
+    padding: 1px 5px;
+    border-radius: 2px;
+  }
+  .tour-body { color: var(--ink-2); font-size: 12.5px; }
+  .tour-body b { color: var(--ink); font-weight: 600; }
+  .tour-body code { font-size: 11.5px; color: var(--accent-ink); }
+  .tour-nav { display: flex; gap: 6px; align-items: center; margin-top: 10px; }
+  .tour-nav .count { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); margin-left: auto; }
+
+  .stats { display: grid; gap: 1px; background: var(--line-soft); border: 1px solid var(--line-soft); }
+  .stat { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; background: var(--surface); padding: 6px 9px; }
+  .stat .k { font-size: 11.5px; color: var(--ink-2); }
+  .stat .v { font-family: var(--mono); font-size: 12px; font-weight: 500; font-variant-numeric: tabular-nums; }
+  .stat .v.warn { color: var(--warn); }
+  .stat .v.ok { color: var(--owned); }
+
+  .legend { display: grid; gap: 7px; }
+  .lg { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--ink-2); }
+  .lg svg { flex: none; }
+  .lg .chip { font-family: var(--mono); font-size: 9.5px; padding: 1px 4px; border-radius: 2px; }
+
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 5px 0; }
+  .toggle-row .lbl { font-size: 12px; color: var(--ink-2); }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 3px; overflow: hidden; }
+  .seg button { padding: 2px 8px; background: var(--surface); border: 0; border-right: 1px solid var(--line-soft); font-family: var(--mono); font-size: 10px; cursor: pointer; }
+  .seg button:last-child { border-right: 0; }
+  .seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+
+  /* ---------- graph ---------- */
+  .canvas { overflow: auto; padding: 0; background: var(--ground); position: relative; }
+  svg.graph { display: block; min-width: 760px; width: 100%; height: auto; }
+  .colhead { font-family: var(--cond); font-size: 12px; font-weight: 700; fill: var(--ink-2); letter-spacing: .02em; }
+  .zone { fill: var(--surface-2); stroke: var(--line-soft); }
+  .zonelabel { font-family: var(--mono); font-size: 9px; fill: var(--ink-3); letter-spacing: .1em; text-transform: uppercase; }
+
+  .edge { fill: none; stroke: var(--ink-3); stroke-width: 1.1; opacity: .5; }
+  .edge.grants { stroke: var(--accent); stroke-width: 1.7; opacity: .85; }
+  .edge.inherits { stroke: var(--accent); stroke-width: 1.3; stroke-dasharray: 5 3.5; opacity: .75; }
+  .edge.backedBy, .edge.members { stroke: var(--idp); stroke-width: 1.3; opacity: .7; }
+  .edge.other { stroke-dasharray: 1.5 3; opacity: .45; }
+  .edge.hot { opacity: 1; stroke-width: 2.3; stroke-dasharray: 6 3; animation: flow 1.1s linear infinite; }
+  .edge.dim { opacity: .13; }
+  @keyframes flow { to { stroke-dashoffset: -18; } }
+  @media (prefers-reduced-motion: reduce) { .edge.hot { animation: none; } }
+  .edgelabel { font-family: var(--mono); font-size: 9px; fill: var(--accent-ink); letter-spacing: .02em; }
+  .edgelabel.idp { fill: var(--idp); }
+
+  .node { cursor: pointer; }
+  .node .box { fill: var(--surface); stroke: var(--line); stroke-width: 1; }
+  .node:hover .box { stroke: var(--ink-3); }
+  .node.sel .box { stroke: var(--accent); stroke-width: 2; }
+  .node.trace .box { stroke: var(--accent); }
+  .node.dim { opacity: .42; }
+  .node .kindlbl { font-family: var(--mono); font-size: 8.5px; fill: var(--ink-3); letter-spacing: .09em; text-transform: uppercase; }
+  .node .title { font-size: 12px; font-weight: 500; fill: var(--ink); }
+  .node .ownlbl { font-family: var(--mono); font-size: 9px; fill: var(--ink-2); }
+  .node .ownlbl.unowned { fill: var(--warn); font-weight: 500; }
+  .node.locked .box { stroke-dasharray: 3 2.5; fill: var(--surface-3); }
+  .node.locked .title { fill: var(--ink-3); }
+  .node.changed .box { animation: flash 1.4s ease-out 1; }
+  @keyframes flash { 0%, 40% { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 2; } 100% { fill: var(--surface); } }
+  @media (prefers-reduced-motion: reduce) { .node.changed .box { animation: none; stroke: var(--accent); } }
+  .stripe { stroke: none; }
+
+  /* ---------- inspector ---------- */
+  .inspector { background: var(--surface); border-left: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+  .insp-head { padding: 12px 16px 0; }
+  .ref { font-family: var(--mono); font-size: 12px; color: var(--accent-ink); word-break: break-all; }
+  .insp-title { font-family: var(--cond); font-size: 17px; font-weight: 700; margin: 2px 0 8px; }
+  .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); padding: 0 16px; }
+  .tabs button {
+    padding: 7px 6px 6px;
+    background: none;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    cursor: pointer;
+  }
+  .tabs button:hover { color: var(--ink); }
+  .tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+  .panes { overflow-y: auto; padding: 14px 16px 28px; flex: 1; min-height: 0; }
+
+  pre.yaml { margin: 0; font-family: var(--mono); font-size: 11.5px; line-height: 1.65; white-space: pre-wrap; word-break: break-word; }
+  .yk { color: var(--ink-2); }
+  .yv { color: var(--ink); }
+  .yr { color: var(--accent-ink); }
+  .ym { color: var(--ink-3); font-style: italic; }
+  .yd { color: var(--deny); background: var(--deny-soft); padding: 0 3px; border-radius: 2px; }
+
+  .block { margin-bottom: 16px; }
+  .block > h3 { font-family: var(--cond); font-size: 12.5px; font-weight: 700; margin-bottom: 6px; }
+  .note { font-size: 11.5px; color: var(--ink-3); }
+  .note b { color: var(--ink-2); }
+
+  .chain { font-family: var(--mono); font-size: 10.5px; line-height: 1.7; }
+  .chain .hop { color: var(--accent-ink); }
+  .chain .hopi { color: var(--idp); }
+  .chain .term { color: var(--ink); font-weight: 500; }
+  .chain .row { padding: 2px 0; border-bottom: 1px dotted var(--line-soft); }
+  .chain .row:last-child { border-bottom: 0; }
+
+  table.grid { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+  table.grid th, table.grid td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--line-soft); }
+  table.grid th { font-family: var(--mono); font-size: 9.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); font-weight: 500; }
+  table.grid td.c { text-align: center; font-family: var(--mono); font-weight: 600; font-variant-numeric: tabular-nums; }
+  table.grid tr.me { background: var(--accent-soft); }
+  .yes { color: var(--owned); }
+  .no { color: var(--ink-3); }
+
+  .tuple { font-family: var(--mono); font-size: 10.5px; line-height: 1.6; padding: 1px 4px; border-radius: 2px; word-break: break-all; }
+  .tuple.add { background: color-mix(in srgb, var(--owned) 16%, transparent); }
+  .tuple.rm { background: var(--deny-soft); text-decoration: line-through; color: var(--ink-2); }
+
+  .logitem { padding: 7px 0; border-bottom: 1px solid var(--line-soft); }
+  .logitem:last-child { border-bottom: 0; }
+  .logitem .lh { display: flex; gap: 8px; align-items: baseline; }
+  .logitem .ts { font-family: var(--mono); font-size: 10px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+  .logitem .actor { font-family: var(--mono); font-size: 10.5px; }
+  .logitem .actor.src { color: var(--idp); }
+  .logitem .actor.usr { color: var(--accent-ink); }
+  .logitem .diff { font-family: var(--mono); font-size: 10.5px; color: var(--ink-2); margin-top: 2px; word-break: break-all; }
+  .logitem .reason { font-size: 11.5px; color: var(--ink-3); }
+  .empty { font-size: 12px; color: var(--ink-3); font-style: italic; }
+
+  .action {
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    background: var(--surface-2);
+    padding: 9px 11px;
+    margin-bottom: 10px;
+  }
+  .action.locked { border-left-color: var(--deny); }
+  .action h4 { margin: 0 0 4px; font-size: 12.5px; font-weight: 600; }
+  .action p { margin: 0 0 7px; font-size: 11.5px; color: var(--ink-2); }
+  .action .ctl { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  select {
+    font: inherit;
+    font-size: 11.5px;
+    padding: 4px 6px;
+    background: var(--surface);
+    color: var(--ink);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+  }
+  .deny-note { font-size: 11px; color: var(--deny); font-family: var(--mono); margin-top: 5px; }
+  .pill {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: .05em;
+    padding: 1px 5px;
+    border-radius: 2px;
+    border: 1px solid var(--line);
+    color: var(--ink-2);
+  }
+  .pill.org { border-color: var(--accent); color: var(--accent-ink); }
+  .pill.owner { border-color: var(--warn); color: var(--warn); }
+  .pill.unowned { border-color: var(--warn); background: var(--warn-soft); color: var(--warn); }
+  .srcbadge { font-family: var(--mono); font-size: 9px; letter-spacing: .06em; text-transform: uppercase; color: var(--idp); border: 1px solid var(--idp); border-radius: 2px; padding: 0 4px; margin-left: 6px; vertical-align: middle; }
+  .idp-banner { border: 1px solid var(--idp); border-left-width: 3px; background: color-mix(in srgb, var(--idp) 8%, var(--surface)); padding: 8px 10px; margin-bottom: 12px; font-size: 11.5px; color: var(--ink-2); }
+  .idp-banner b { color: var(--ink); }
+  .idp-banner code { color: var(--idp); }
+  .node .kindlbl.idp { fill: var(--idp); font-size: 8px; letter-spacing: .07em; }
+  .members { display: grid; gap: 3px; }
+  .memrow { display: flex; align-items: center; gap: 8px; font-size: 11.5px; padding: 3px 0; border-bottom: 1px dotted var(--line-soft); }
+  .memrow .mn { font-family: var(--mono); font-size: 11px; }
+  .memrow .sp { margin-left: auto; }
+
+  @media (max-width: 1180px) {
+    .app { grid-template-columns: 236px minmax(0, 1fr); grid-template-rows: auto minmax(360px, 1fr) minmax(320px, 440px); height: auto; }
+    .inspector { grid-column: 1 / -1; border-left: 0; border-top: 1px solid var(--line); }
+    .canvas { max-height: 70vh; }
+  }
+</style>
+
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <h1>Catalog Ownership Explorer</h1>
+      <div class="sub">A working model of <a href="./design.md">docs/service-catalog/design.md</a> — kinds, resources, links, inferred ownership, derived access.</div>
+    </div>
+    <div class="viewer-bar">
+      <span class="eyebrow">Acting as</span>
+      <div class="who" id="who"></div>
+      <button class="btn" id="reset">Reset</button>
+    </div>
+  </header>
+
+  <aside class="rail">
+    <section>
+      <h2>Guided tour</h2>
+      <div id="tour"></div>
+    </section>
+    <section>
+      <h2>What you can see</h2>
+      <div class="stats" id="stats"></div>
+    </section>
+    <section>
+      <h2>Kind visibility</h2>
+      <div class="note" style="margin-bottom:6px">Section 3.3: the read default per kind. Flip <code>component</code> to see the discoverability trade-off.</div>
+      <div id="vis"></div>
+    </section>
+    <section style="border-bottom:0">
+      <h2>Legend</h2>
+      <div class="legend">
+        <div class="lg"><svg width="34" height="8"><line x1="1" y1="4" x2="33" y2="4" stroke="var(--accent)" stroke-width="1.7"/></svg><span><code>ownership: grants</code> — defines the owner</span></div>
+        <div class="lg"><svg width="34" height="8"><line x1="1" y1="4" x2="33" y2="4" stroke="var(--accent)" stroke-width="1.3" stroke-dasharray="5 3.5"/></svg><span><code>ownership: inherits</code> — walked when no direct owner</span></div>
+        <div class="lg"><svg width="34" height="8"><line x1="1" y1="4" x2="33" y2="4" stroke="var(--idp)" stroke-width="1.3"/></svg><span><code>backedBy</code> / <code>members</code> — asserted by the IdP</span></div>
+        <div class="lg"><svg width="34" height="8"><line x1="1" y1="4" x2="33" y2="4" stroke="var(--ink-3)" stroke-width="1.1" stroke-dasharray="1.5 3"/></svg><span>plain link, no ownership role</span></div>
+        <div class="lg"><svg width="34" height="14"><rect x="1" y="1" width="32" height="12" fill="var(--surface-3)" stroke="var(--line)" stroke-dasharray="3 2.5"/></svg><span>hidden from you — the real API omits it</span></div>
+        <div class="lg"><span class="chip" style="background:var(--warn-soft);color:var(--warn)">unowned</span><span>no path to a team resolves</span></div>
+        <div class="lg"><span class="chip" style="border:1px solid var(--idp);color:var(--idp)">entra-id</span><span>source-owned: mirrored from the IdP, read-only here</span></div>
+      </div>
+    </section>
+  </aside>
+
+  <main class="canvas"><svg class="graph" id="graph" viewBox="0 0 1082 690" role="img" aria-label="Catalog ownership graph"></svg></main>
+
+  <aside class="inspector">
+    <div class="insp-head">
+      <div class="ref" id="iref"></div>
+      <div class="insp-title" id="ititle"></div>
+    </div>
+    <div class="tabs" id="tabs"></div>
+    <div class="panes" id="panes"></div>
+  </aside>
+</div>
+
+<script>
+/* ===========================================================================
+   Kinds — schema as data (design §2.1). Links are first class; at most one
+   link per kind carries ownership: grants.
+   =========================================================================== */
+const KINDS = {
+  // sourceOwned: the catalog has no write path for this kind. Every record,
+  // property and link is mirrored from the identity provider (entra-id) and
+  // the only way to change one is to change it there (design §4.4).
+  user:           { title: "User",         visibility: "org",   sourceOwned: "entra-id", links: {} },
+  identity_group: { title: "Identity group", visibility: "org", sourceOwned: "entra-id", links: { members: { target: ["user", "identity_group"], many: true, role: "members" } } },
+  team:           { title: "Team",         visibility: "org",   links: { backedBy: { target: "identity_group", many: true, role: "backedBy" } } },
+  system:         { title: "System",       visibility: "org",   links: { owner: { target: "team", ownership: "grants" } } },
+  component:      { title: "Component",    visibility: "org",   sensitive: ["oncallRota", "monthlyCost"],
+                    links: { owner: { target: "team", ownership: "grants" }, system: { target: "system", ownership: "inherits" }, dependsOn: { target: "component", many: true } } },
+  repository:     { title: "Repository",   visibility: "owner", provider: "github",
+                    links: { component: { target: "component", ownership: "inherits" } } },
+  k8s_workload:   { title: "K8s workload", visibility: "owner", provider: "k8s",
+                    links: { component: { target: "component", ownership: "inherits" } } },
+  aws_sqs_queue:  { title: "SQS queue",    visibility: "owner", provider: "aws",
+                    links: { component: { target: "component", ownership: "inherits" } } },
+  aws_rds_instance:{ title: "RDS instance", visibility: "owner", provider: "aws",
+                    links: { component: { target: "component", ownership: "inherits" } } },
+};
+const PROVIDER_COLOR = { aws: "var(--aws)", k8s: "var(--k8s)", github: "var(--github)", idp: "var(--idp)" };
+
+/* ===========================================================================
+   Seed resources. `src` is the ingestion source that owns the resource's
+   properties (design §4.4); `seen` is lastSeenAt on that source.
+   =========================================================================== */
+function seed() {
+  const R = {};
+  const add = (kind, identifier, title, props, links, src, seen) => {
+    R[kind + ":" + identifier] = { kind, identifier, title, props: props || {}, links: links || {}, src, seen };
+  };
+
+  add("user", "alice", "Alice Novak", { email: "alice@acme.io", jobTitle: "Staff engineer, Payments" }, {}, "entra-id", "09:58");
+  add("user", "bob", "Bob Mehta", { email: "bob@acme.io", jobTitle: "Engineer, Payments" }, {}, "entra-id", "09:58");
+  add("user", "carol", "Carol Ihde", { email: "carol@acme.io", jobTitle: "Engineer, Search" }, {}, "entra-id", "09:58");
+  add("user", "dave", "Dave Osei", { email: "dave@acme.io", jobTitle: "Contractor, Search" }, {}, "entra-id", "09:58");
+  add("user", "frank", "Frank Lind", { email: "frank@acme.io", jobTitle: "Platform engineering" }, {}, "entra-id", "09:58");
+
+  add("identity_group", "eng-payments-leads", "eng-payments-leads", { provider: "entra-id", objectId: "7f1c…a09" }, { members: ["user:alice"] }, "entra-id", "09:58");
+  add("identity_group", "eng-payments", "eng-payments", { provider: "entra-id", objectId: "2b8e…41d" }, { members: ["user:bob", "identity_group:eng-payments-leads"] }, "entra-id", "09:58");
+  add("identity_group", "eng-search", "eng-search", { provider: "entra-id", objectId: "9dd0…c73" }, { members: ["user:carol", "user:dave"] }, "entra-id", "09:58");
+  add("identity_group", "payments-contractors", "payments-contractors", { provider: "entra-id", objectId: "4a55…1fe" }, { members: ["user:dave"] }, "entra-id", "09:58");
+  add("identity_group", "platform-engineering", "platform-engineering", { provider: "entra-id", objectId: "11ab…9c2" }, { members: ["user:frank"] }, "entra-id", "09:58");
+
+  // A team is not one source's record (design §2.3.1): the HR system owns the
+  // org unit, the identity provider owns membership, the on-call tool owns the
+  // rota. Git owns none of it.
+  const team = (id, title, ou, cc, mgr, slack, rota, groups) => {
+    add("team", id, title, { orgUnitId: ou, costCentre: cc, manager: mgr, slack: slack, oncallRota: rota },
+        { backedBy: groups }, "hris", "06:10");
+    const t = R["team:" + id];
+    t.sources = [{ source: "hris", seen: "06:10" }, { source: "entra-id", seen: "09:58" }, { source: "pagerduty", seen: "09:47" }];
+    t.prov = { orgUnitId: "hris", costCentre: "hris", manager: "hris", slack: "manual", oncallRota: "pagerduty", backedBy: "entra-id" };
+  };
+  team("payments", "Payments", "OU-2241", "CC-4120", "Nadia Berg", "#team-payments", "payments-primary", ["identity_group:eng-payments"]);
+  team("search", "Search", "OU-2263", "CC-4180", "Rafael Tun", "#team-search", "search-primary", ["identity_group:eng-search"]);
+  team("platform", "Platform", "OU-2200", "CC-4000", "Nadia Berg", "#team-platform", "platform-primary", ["identity_group:platform-engineering"]);
+
+  // A system is an architecture grouping: no HR or identity equivalent. Its
+  // membership is materialised from what the components themselves declare in
+  // their catalog file; its own attributes come from the portfolio tool.
+  const system = (id, title, domain, po, owner) => {
+    add("system", id, title, { domain: domain, productOwner: po }, { owner: owner }, "github", "10:02");
+    const x = R["system:" + id];
+    x.sources = [{ source: "github", seen: "10:02" }, { source: "portfolio", seen: "07:30" }];
+    x.prov = { domain: "portfolio", productOwner: "portfolio", owner: "portfolio" };
+    x.derived = "materialised from the component.system declarations in each repo's catalog file (§2.5 dangling-edge resolution)";
+  };
+  system("commerce", "Commerce", "revenue", "Nadia Berg", "team:payments");
+  system("discovery", "Discovery", "product", "Rafael Tun", "team:search");
+
+  add("component", "checkout-service", "Checkout Service",
+    { lifecycle: "production", tier: "tier-1", language: "go", oncallRota: "payments-primary", monthlyCost: "$4,210" },
+    { owner: "team:payments", system: "system:commerce", dependsOn: ["component:cart-service"] }, "github", "10:02");
+  add("component", "cart-service", "Cart Service",
+    { lifecycle: "production", tier: "tier-2", language: "go", oncallRota: "payments-primary", monthlyCost: "$980" },
+    { system: "system:commerce" }, "github", "10:02");
+  add("component", "search-indexer", "Search Indexer",
+    { lifecycle: "production", tier: "tier-2", language: "java", oncallRota: "search-primary", monthlyCost: "$1,640" },
+    { owner: "team:search", system: "system:discovery" }, "github", "10:02");
+
+  add("repository", "github/acme/checkout-service", "acme/checkout-service",
+    { defaultBranch: "main", repoVisibility: "private", criticalVulnerabilities: 0, catalogFile: ".platform/catalog.yaml" },
+    { component: "component:checkout-service" }, "github", "10:02");
+  add("k8s_workload", "prod-eu/checkout/checkout-web", "checkout-web",
+    { cluster: "prod-eu", namespace: "checkout", replicas: 6, image: "ghcr.io/acme/checkout-web:1.84.2", componentLabel: "platform.acme.io/component=checkout-service" },
+    { component: "component:checkout-service" }, "kubernetes-prod-eu", "10:04");
+  add("aws_sqs_queue", "prod-4711/checkout-events", "prod-checkout-events",
+    { region: "eu-west-1", account: "4711", messagesVisible: 128, tags: "platform:component=checkout-service" },
+    { component: "component:checkout-service" }, "aws-prod-4711", "09:51");
+  add("aws_rds_instance", "prod-4711/checkout-db", "prod-checkout-db",
+    { region: "eu-west-1", engine: "postgres 16.3", instanceClass: "db.r6g.large", multiAZ: true, tags: "platform:component=checkout-service" },
+    { component: "component:checkout-service" }, "aws-prod-4711", "09:51");
+  add("k8s_workload", "prod-eu/search/indexer", "search-indexer",
+    { cluster: "prod-eu", namespace: "search", replicas: 3, image: "ghcr.io/acme/search-indexer:0.42.0", componentLabel: "platform.acme.io/component=search-indexer" },
+    { component: "component:search-indexer" }, "kubernetes-prod-eu", "10:04");
+  add("aws_sqs_queue", "prod-4711/legacy-orders-dlq", "legacy-orders-dlq",
+    { region: "eu-west-1", account: "4711", messagesVisible: 1943, tags: "— none —" },
+    {}, "aws-prod-4711", "09:51");
+
+  return R;
+}
+
+const COLUMNS = [
+  { head: "People", refs: ["user:alice", "user:bob", "user:carol", "user:dave", "user:frank"] },
+  { head: "Identity groups", refs: ["identity_group:eng-payments-leads", "identity_group:eng-payments", "identity_group:eng-search", "identity_group:payments-contractors", "identity_group:platform-engineering"] },
+  { head: "Teams", refs: ["team:payments", "team:search", "team:platform"] },
+  { head: "Systems", refs: ["system:commerce", "system:discovery"] },
+  { head: "Components", refs: ["component:checkout-service", "component:cart-service", "component:search-indexer"] },
+  { head: "Infrastructure", refs: ["repository:github/acme/checkout-service", "k8s_workload:prod-eu/checkout/checkout-web", "aws_sqs_queue:prod-4711/checkout-events", "aws_rds_instance:prod-4711/checkout-db", "k8s_workload:prod-eu/search/indexer", "aws_sqs_queue:prod-4711/legacy-orders-dlq"] },
+];
+
+const VIEWERS = [
+  { ref: "user:alice", name: "Alice", role: "payments" },
+  { ref: "user:bob", name: "Bob", role: "payments" },
+  { ref: "user:carol", name: "Carol", role: "search" },
+  { ref: "user:dave", name: "Dave", role: "contractor" },
+  { ref: "user:frank", name: "Frank", role: "platform admin" },
+];
+const PLATFORM_ADMIN_GROUP = "identity_group:platform-engineering";
+
+/* ===========================================================================
+   State
+   =========================================================================== */
+let S, clock, tab = "resource", sel = "aws_sqs_queue:prod-4711/checkout-events", tourStep = 0, lastDiff = null, changed = new Set();
+
+function resetState() {
+  S = { res: seed(), viewer: "user:alice", vis: { component: "org" }, log: [] };
+  clock = new Date("2026-11-17T10:12:00Z");
+  sel = "aws_sqs_queue:prod-4711/checkout-events";
+  tab = "resource"; lastDiff = null; changed = new Set(); tourStep = 0;
+}
+
+const vals = (r, link) => { const v = r.links[link]; return v == null ? [] : Array.isArray(v) ? v.slice() : [v]; };
+const kindOf = (ref) => KINDS[S.res[ref] ? S.res[ref].kind : ref.split(":")[0]];
+const visOf = (kind) => S.vis[kind] || KINDS[kind].visibility;
+const uniq = (a) => [...new Set(a)];
+
+/* --- ownership inference (design §2.4) ----------------------------------- */
+function owners(ref, seen, depth) {
+  seen = seen || new Set(); depth = depth || 0;
+  if (depth > 6 || seen.has(ref)) return [];          // cycle detection + depth limit
+  seen.add(ref);
+  const r = S.res[ref]; if (!r) return [];            // dangling edge: never owns
+  const links = KINDS[r.kind].links;
+  for (const name in links) if (links[name].ownership === "grants") {
+    const v = vals(r, name); if (v.length) return uniq(v);
+  }
+  let out = [];
+  for (const name in links) if (links[name].ownership === "inherits")
+    for (const t of vals(r, name)) out = out.concat(owners(t, seen, depth + 1));
+  return uniq(out);
+}
+/* chains of (link, target) hops from a resource to its owning team(s) */
+function ownerChains(ref, seen, depth) {
+  seen = seen || new Set(); depth = depth || 0;
+  if (depth > 6 || seen.has(ref)) return [];
+  seen.add(ref);
+  const r = S.res[ref]; if (!r) return [];
+  const links = KINDS[r.kind].links;
+  for (const name in links) if (links[name].ownership === "grants") {
+    const v = vals(r, name);
+    if (v.length) return v.map((t) => [{ from: ref, link: name, to: t, role: "grants" }]);
+  }
+  let out = [];
+  for (const name in links) if (links[name].ownership === "inherits")
+    for (const t of vals(r, name))
+      for (const tail of ownerChains(t, seen, depth + 1))
+        out.push([{ from: ref, link: name, to: t, role: "inherits" }].concat(tail));
+  return out;
+}
+/* chains team --backedBy--> group (--members--> group)* --members--> user */
+function memberChains(teamRef) {
+  const out = [];
+  const walk = (gref, path, guard) => {
+    if (guard.has(gref)) return; guard.add(gref);
+    for (const m of vals(S.res[gref], "members")) {
+      const hop = { from: gref, link: "members", to: m, role: "members" };
+      if (m.startsWith("user:")) out.push(path.concat(hop));
+      else walk(m, path.concat(hop), guard);
+    }
+  };
+  for (const g of vals(S.res[teamRef] || { links: {} }, "backedBy"))
+    if (S.res[g]) walk(g, [{ from: teamRef, link: "backedBy", to: g, role: "backedBy" }], new Set());
+  return out;
+}
+function groupUsers(gref, guard) {
+  guard = guard || new Set();
+  if (guard.has(gref) || !S.res[gref]) return []; guard.add(gref);
+  let out = [];
+  for (const m of vals(S.res[gref], "members"))
+    out = out.concat(m.startsWith("user:") ? [m] : groupUsers(m, guard));
+  return uniq(out);
+}
+const teamUsers = (t) => uniq(vals(S.res[t] || { links: {} }, "backedBy").flatMap((g) => groupUsers(g)));
+const isPlatformAdmin = (u) => groupUsers(PLATFORM_ADMIN_GROUP).includes(u);
+const userTeams = (u) => Object.keys(S.res).filter((r) => r.startsWith("team:") && teamUsers(r).includes(u));
+
+/* --- derived access (design §3) ------------------------------------------ */
+function ownerMember(u, ref) { return owners(ref).some((t) => teamUsers(t).includes(u)); }
+function access(u, ref) {
+  const o = owners(ref), om = ownerMember(u, ref), admin = isPlatformAdmin(u), org = visOf(S.res[ref].kind) === "org";
+  let view, why;
+  if (om) { view = true; why = "owner_member — you are in a group behind an owning team"; }
+  else if (admin) { view = true; why = "admin from platform — platform:default#admin"; }
+  else if (org) { view = true; why = "org_viewer from kind — kind visibility is org"; }
+  else if (!o.length) { view = false; why = "unowned + visibility owner — platform admins only"; }
+  else { view = false; why = "no path resource → " + o.join(", ") + " → group → you"; }
+  const sourceOwned = !!KINDS[S.res[ref].kind].sourceOwned;
+  return { view, why, sourceOwned,
+    edit: !sourceOwned && (om || admin), run: !sourceOwned && (om || admin), transfer: !sourceOwned && admin,
+    redacted: !om && !admin };
+}
+const canSee = (ref) => access(S.viewer, ref).view;
+
+/* --- OpenFGA tuples (design §3.2) ---------------------------------------- */
+function tuples() {
+  const t = [];
+  for (const ref in S.res) {
+    const r = S.res[ref], k = r.kind;
+    if (k === "identity_group") for (const m of vals(r, "members"))
+      t.push("identity_group:" + r.identifier + "#member@" + (m.startsWith("user:") ? m : m + "#member"));
+    else if (k === "team") for (const g of vals(r, "backedBy"))
+      t.push("team:" + r.identifier + "#backed_by@" + g);
+    else if (k !== "user") {
+      t.push("resource:" + ref.replace(":", "/") + "#kind@kind:" + k);
+      for (const o of owners(ref)) t.push("resource:" + ref.replace(":", "/") + "#owner@" + o);
+    }
+  }
+  for (const k in KINDS) if (k !== "user") {
+    t.push("kind:" + k + "#platform@platform:default");
+    if (visOf(k) === "org") t.push("kind:" + k + "#org_viewer@user:*");
+  }
+  t.push("platform:default#admin@" + PLATFORM_ADMIN_GROUP + "#member");
+  return t;
+}
+
+/* --- change log (design §4.6) -------------------------------------------- */
+function write(actor, ref, diff, reason) {
+  clock = new Date(clock.getTime() + 37000 + Math.floor(Math.random() * 90) * 1000);
+  S.log.unshift({ ts: clock.toISOString().slice(11, 19) + "Z", actor, ref, diff, reason });
+}
+function applyChange(fn, actor, ref, diff, reason) {
+  const before = new Set(tuples()), ownBefore = {};
+  for (const r in S.res) ownBefore[r] = owners(r).join(",");
+  fn();
+  const after = tuples();
+  lastDiff = { added: after.filter((x) => !before.has(x)), removed: [...before].filter((x) => !after.includes(x)) };
+  changed = new Set(Object.keys(S.res).filter((r) => (ownBefore[r] || "") !== owners(r).join(",")));
+  write(actor, ref, diff, reason);
+  render();
+  setTimeout(() => { changed = new Set(); const g = document.getElementById("graph"); g.querySelectorAll(".changed").forEach((n) => n.classList.remove("changed")); }, 1600);
+}
+
+/* ===========================================================================
+   Graph layout + render
+   =========================================================================== */
+const NW = 156, NH = 52, CX = 176, SLOT = 86, CY = 348, X0 = 22;
+const pos = {};
+function layout() {
+  COLUMNS.forEach((col, ci) => col.refs.forEach((ref, i) => {
+    pos[ref] = { x: X0 + ci * CX, y: CY - ((col.refs.length - 1) * SLOT) / 2 + i * SLOT - NH / 2, col: ci };
+  }));
+}
+function allEdges() {
+  const out = [];
+  for (const ref in S.res) {
+    const r = S.res[ref], links = KINDS[r.kind].links;
+    for (const name in links) {
+      const def = links[name];
+      const role = def.ownership === "grants" ? "grants" : def.ownership === "inherits" ? "inherits" : def.role || "other";
+      for (const to of vals(r, name)) out.push({ from: ref, link: name, to, role });
+    }
+  }
+  return out;
+}
+const ekey = (e) => e.from + "|" + e.link + "|" + e.to;
+
+function traceOf(ref) {
+  if (!S.res[ref]) return { edges: new Set(), nodes: new Set(), chains: [] };
+  const chains = [];
+  const start = S.res[ref].kind === "team" ? [[]] : ownerChains(ref);
+  if (S.res[ref].kind === "team") memberChains(ref).forEach((mc) => chains.push(mc));
+  else if (S.res[ref].kind === "identity_group") groupUsersChains(ref).forEach((c) => chains.push(c));
+  else start.forEach((oc) => {
+    const team = oc.length ? oc[oc.length - 1].to : null;
+    const mcs = team ? memberChains(team) : [];
+    if (!mcs.length) chains.push(oc);
+    else mcs.forEach((mc) => chains.push(oc.concat(mc)));
+  });
+  const edges = new Set(), nodes = new Set([ref]);
+  chains.forEach((c) => c.forEach((h) => { edges.add(ekey(h)); nodes.add(h.from); nodes.add(h.to); }));
+  return { edges, nodes, chains };
+}
+function groupUsersChains(gref) {
+  const out = [];
+  const walk = (g, path, guard) => {
+    if (guard.has(g)) return; guard.add(g);
+    for (const m of vals(S.res[g], "members")) {
+      const hop = { from: g, link: "members", to: m, role: "members" };
+      if (m.startsWith("user:")) out.push(path.concat(hop)); else walk(m, path.concat(hop), guard);
+    }
+  };
+  walk(gref, [], new Set());
+  return out;
+}
+
+function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+
+function renderGraph() {
+  const tr = traceOf(sel);
+  const parts = [];
+  parts.push(`<defs>
+    <marker id="a-mut" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse"><path d="M0.5 1 L7 4 L0.5 7 z" fill="var(--ink-3)"/></marker>
+    <marker id="a-acc" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse"><path d="M0.5 1 L7 4 L0.5 7 z" fill="var(--accent)"/></marker>
+    <marker id="a-idp" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse"><path d="M0.5 1 L7 4 L0.5 7 z" fill="var(--idp)"/></marker>
+  </defs>`);
+
+  // zones: which part of the map is a projection of which system
+  parts.push(`<rect class="zone" x="${X0 - 12}" y="78" width="${CX + NW + 24}" height="560" rx="4"/>`);
+  parts.push(`<text class="zonelabel" x="${X0 - 4}" y="632">projection of the identity provider</text>`);
+  parts.push(`<rect class="zone" x="${X0 + 5 * CX - 12}" y="78" width="${NW + 24}" height="560" rx="4"/>`);
+  parts.push(`<text class="zonelabel" x="${X0 + 5 * CX - 4}" y="632">projection of GitHub · Kubernetes · AWS</text>`);
+  parts.push(`<text class="zonelabel" x="${X0 + 2 * CX - 4}" y="632">teams: hr system + idp + on-call tool · systems: declared by their components</text>`);
+
+  COLUMNS.forEach((col, ci) => parts.push(`<text class="colhead" x="${X0 + ci * CX}" y="62">${col.head}</text>`));
+
+  // edges
+  for (const e of allEdges()) {
+    const a = pos[e.from], b = pos[e.to];
+    if (!a || !b) continue;
+    const hot = tr.edges.has(ekey(e));
+    const dim = !hot && tr.edges.size > 0;
+    let d;
+    if (a.col === b.col) {                                   // dependsOn — bow out to the left
+      const y1 = a.y + NH / 2, y2 = b.y + NH / 2;
+      d = `M ${a.x} ${y1} C ${a.x - 46} ${y1}, ${a.x - 46} ${y2}, ${b.x} ${y2}`;
+    } else {
+      const x1 = a.x, y1 = a.y + NH / 2, x2 = b.x + NW, y2 = b.y + NH / 2, mid = (x1 + x2) / 2;
+      d = `M ${x1} ${y1} C ${mid} ${y1}, ${mid} ${y2}, ${x2} ${y2}`;
+    }
+    const marker = e.role === "members" || e.role === "backedBy" ? "a-idp" : e.role === "other" ? "a-mut" : "a-acc";
+    parts.push(`<path class="edge ${e.role}${hot ? " hot" : ""}${dim ? " dim" : ""}" d="${d}" marker-end="url(#${marker})"/>`);
+    if (hot && a.col !== b.col) {
+      const mx = (a.x + b.x + NW) / 2, my = (a.y + b.y) / 2 + NH / 2 - 5;
+      parts.push(`<text class="edgelabel${e.role === "members" || e.role === "backedBy" ? " idp" : ""}" x="${mx}" y="${my}" text-anchor="middle">${e.link}</text>`);
+    }
+  }
+
+  // nodes
+  for (const ref in pos) {
+    const r = S.res[ref]; if (!r) continue;
+    const p = pos[ref], k = KINDS[r.kind], acc = access(S.viewer, ref);
+    const own = r.kind === "user" || r.kind === "identity_group" || r.kind === "team" ? null : owners(ref);
+    const cls = ["node"];
+    if (ref === sel) cls.push("sel");
+    else if (tr.nodes.has(ref)) cls.push("trace");
+    else if (tr.edges.size) cls.push("dim");
+    if (!acc.view) cls.push("locked");
+    if (changed.has(ref)) cls.push("changed");
+    const stripe = k.provider ? PROVIDER_COLOR[k.provider] : r.kind === "user" || r.kind === "identity_group" ? PROVIDER_COLOR.idp : own && !own.length ? "var(--warn)" : "var(--accent)";
+    let sub = "";
+    if (own) sub = own.length ? "▸ " + own.map((o) => o.split(":")[1]).join(", ") : "unowned";
+    else if (r.kind === "team") sub = "◂ " + (teamUsers(ref).length || 0) + " member" + (teamUsers(ref).length === 1 ? "" : "s");
+    else if (r.kind === "identity_group") sub = "◂ " + groupUsers(ref).length + " user" + (groupUsers(ref).length === 1 ? "" : "s");
+    else sub = esc(r.props.jobTitle || "").split(",")[0].toLowerCase();
+    const title = r.title.length > 19 ? r.title.slice(0, 18) + "…" : r.title;
+    parts.push(`<g class="${cls.join(" ")}" data-ref="${esc(ref)}" tabindex="0" role="button" aria-label="${esc(r.kind + " " + r.title)}">
+      <rect class="box" x="${p.x}" y="${p.y}" width="${NW}" height="${NH}" rx="3"/>
+      <rect class="stripe" x="${p.x}" y="${p.y}" width="3" height="${NH}" fill="${stripe}"/>
+      <text class="kindlbl${k.sourceOwned ? " idp" : ""}" x="${p.x + 11}" y="${p.y + 15}">${k.title}${k.sourceOwned ? " · " + k.sourceOwned : ""}</text>
+      <text class="title" x="${p.x + 11}" y="${p.y + 31}">${esc(title)}</text>
+      <text class="ownlbl ${own && !own.length ? "unowned" : ""}" x="${p.x + 11}" y="${p.y + 45}">${esc(sub)}</text>
+      ${acc.view ? "" : `<text x="${p.x + NW - 13}" y="${p.y + 20}" font-size="12" fill="var(--ink-3)">🔒</text>`}
+    </g>`);
+  }
+  const g = document.getElementById("graph");
+  g.innerHTML = parts.join("\n");
+  g.querySelectorAll(".node").forEach((n) => {
+    n.addEventListener("click", () => { sel = n.dataset.ref; render(); });
+    n.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); sel = n.dataset.ref; render(); } });
+  });
+}
+
+/* ===========================================================================
+   Inspector
+   =========================================================================== */
+const TABS = [["resource", "Resource"], ["ownership", "Ownership"], ["access", "Access"], ["actions", "Change"], ["tuples", "Tuples"], ["log", "Log"]];
+
+function yamlView(ref) {
+  const r = S.res[ref], k = KINDS[r.kind], acc = access(S.viewer, ref);
+  const L = [];
+  const row = (indent, key, val, cls) => L.push(" ".repeat(indent) + `<span class="yk">${key}:</span>` + (val === undefined ? "" : ` <span class="${cls || "yv"}">${val}</span>`));
+  if (!acc.view) {
+    return `<pre class="yaml"><span class="ym"># 403 — Check(${S.viewer}, can_view, resource:${esc(ref.replace(":", "/"))}) = false
+# ${esc(acc.why)}
+#
+# The real API would not return this resource at all, and it would not
+# appear in search, list or graph traversal. It is drawn here, locked,
+# so you can see what the permission model is hiding from you.</span></pre>`;
+  }
+  row(0, "kind", r.kind);
+  row(0, "identifier", r.identifier);
+  row(0, "title", '"' + esc(r.title) + '"');
+  if (Object.keys(r.props).length) {
+    row(0, "properties");
+    for (const p in r.props) {
+      const hide = (k.sensitive || []).includes(p) && acc.redacted;
+      row(2, p, hide ? "«redacted — sensitivity: owner»" : esc(r.props[p]), hide ? "yd" : "yv");
+    }
+  }
+  const links = Object.keys(k.links).filter((n) => vals(r, n).length);
+  if (links.length) {
+    row(0, "links");
+    for (const n of links) {
+      const v = vals(r, n), def = k.links[n];
+      const tag = def.ownership ? `  <span class="ym"># ownership: ${def.ownership}</span>` : "";
+      row(2, n, (Array.isArray(r.links[n]) ? "[" + v.map(esc).join(", ") + "]" : esc(v[0])) + tag, "yr");
+    }
+  }
+  if (k.sourceOwned) L.unshift(`<span class="ym"># mirrored from ${k.sourceOwned}: the catalog never writes this kind.
+# PUT/PATCH/DELETE on it answer 405; the identity provider is the only author.</span>`);
+  L.push(`<span class="ym"># server-managed</span>`);
+  row(0, "meta");
+  if (k.sourceOwned) { row(2, "managedBy", "source:" + k.sourceOwned, "yr"); row(2, "writable", "false", "yr"); }
+  if (r.derived) L.push(`  <span class="ym"># ${r.derived}</span>`);
+  row(2, "sources");
+  (r.sources || [{ source: r.src, seen: r.seen }]).forEach((x) =>
+    L.push(`    <span class="yk">- {</span> <span class="yk">source:</span> <span class="yv">${x.source}</span><span class="yk">,</span> <span class="yk">lastSeenAt:</span> <span class="yv">2026-11-17T${x.seen}:00Z</span> <span class="yk">}</span>`));
+  if (r.prov) {
+    row(2, "propertyProvenance");
+    for (const pp in r.prov) row(4, pp, r.prov[pp]);
+  }
+  const own = owners(ref);
+  if (r.kind !== "user" && r.kind !== "identity_group" && r.kind !== "team")
+    row(2, "effectiveOwners", own.length ? "[" + own.map(esc).join(", ") + "]" : "[]  <span class=\"ym\"># unowned — first-class state (§2.4)</span>", "yr");
+  return `<pre class="yaml">${L.join("\n")}</pre>`;
+}
+
+function ownershipView(ref) {
+  const r = S.res[ref], k = KINDS[r.kind], tr = traceOf(ref), own = owners(ref);
+  const out = [];
+  const grantsLink = Object.keys(k.links).find((n) => k.links[n].ownership === "grants");
+  const inheritLinks = Object.keys(k.links).filter((n) => k.links[n].ownership === "inherits");
+
+  out.push(`<div class="block"><h3>How the resolver decided</h3><div class="note">`);
+  if (grantsLink && vals(r, grantsLink).length)
+    out.push(`<b>Step 1 hit.</b> <code>${r.kind}.${grantsLink}</code> is <code>ownership: grants</code> and is set, so its target is the owner. Inheritance is not consulted.`);
+  else if (inheritLinks.some((n) => vals(r, n).length))
+    out.push(`<b>Step 1 missed</b> — ${grantsLink ? `<code>${r.kind}.${grantsLink}</code> is empty` : `kind <code>${r.kind}</code> has no <code>grants</code> link`}. <b>Step 2:</b> follow ${inheritLinks.map((n) => `<code>${n}</code>`).join(", ")} (<code>ownership: inherits</code>) and take the owners of the targets, recursively.`);
+  else if (r.kind === "team" || r.kind === "identity_group" || r.kind === "user")
+    out.push(`This is an identity-side resource. It is not owned; it is what ownership resolves <em>to</em>. ${k.sourceOwned ? `Its existence, properties and membership come from <code>${k.sourceOwned}</code>; nobody defines users or groups in the platform.` : "The team record comes from the HR system (§2.3.1) and the people behind it arrive through its backing groups from the IdP — git defines neither."}`);
+  else
+    out.push(`<b>Nothing resolves.</b> No <code>grants</code> link and no <code>inherits</code> link is set, so the resource is <b>unowned</b> — a first-class state, visible to platform admins only and reportable.`);
+  out.push(`</div></div>`);
+
+  if (own.length || r.kind === "team" || r.kind === "identity_group") {
+    out.push(`<div class="block"><h3>Path to people</h3><div class="chain">`);
+    if (!tr.chains.length) out.push(`<div class="empty">No membership path — the owning team has no backing group with members.</div>`);
+    tr.chains.slice(0, 10).forEach((c) => {
+      let s = `<span class="term">${esc(ref)}</span>`;
+      c.forEach((h) => {
+        const idp = h.role === "members" || h.role === "backedBy";
+        s += ` <span class="${idp ? "hopi" : "hop"}">--${h.link}--&gt;</span> <span class="${h.to.startsWith("user:") ? "term" : ""}">${esc(h.to)}</span>`;
+      });
+      out.push(`<div class="row">${s}</div>`);
+    });
+    out.push(`</div></div>`);
+  }
+
+  out.push(`<div class="block"><h3>Who this reaches</h3>`);
+  if (own.length) {
+    out.push(`<table class="grid"><tr><th>Owning team</th><th>Backing groups</th><th>Users</th></tr>`);
+    own.forEach((t) => out.push(`<tr><td class="mono">${esc(t)}</td><td class="mono" style="font-size:10.5px">${vals(S.res[t], "backedBy").map((g) => esc(g.split(":")[1])).join("<br>") || "—"}</td><td>${teamUsers(t).map((u) => esc(S.res[u].title)).join(", ") || "—"}</td></tr>`));
+    out.push(`</table>`);
+  } else out.push(`<div class="note">Nobody, through ownership. ${visOf(r.kind) === "org" ? "The kind is <code>org</code>-visible, so it is still discoverable." : ""}</div>`);
+  out.push(`</div>`);
+  return out.join("");
+}
+
+function accessView(ref) {
+  const r = S.res[ref], me = access(S.viewer, ref);
+  const out = [];
+  out.push(`<div class="block"><h3>You, on this resource</h3><div class="note">
+    <b>${S.viewer}</b> → <b style="color:${me.view ? "var(--owned)" : "var(--deny)"}">can_view = ${me.view}</b><br><code>${esc(me.why)}</code>
+    ${me.view && me.redacted && (KINDS[r.kind].sensitive || []).length ? `<br><br>Properties marked <code>sensitivity: owner</code> (${KINDS[r.kind].sensitive.join(", ")}) are redacted for you — §3.3.` : ""}
+  </div></div>`);
+  out.push(`<div class="block"><h3>Decision per user</h3>
+    <table class="grid"><tr><th>User</th><th>view</th><th>edit</th><th>run&nbsp;action</th><th>transfer</th></tr>`);
+  VIEWERS.forEach((v) => {
+    const a = access(v.ref, ref);
+    const c = (b) => `<td class="c ${b ? "yes" : "no"}">${b ? "✓" : "·"}</td>`;
+    out.push(`<tr class="${v.ref === S.viewer ? "me" : ""}"><td>${v.name} <span class="note">${v.role}</span></td>${c(a.view)}${c(a.edit)}${c(a.run)}${c(a.transfer)}</tr>`);
+  });
+  out.push(`</table>${me.sourceOwned ? `<div class="note" style="margin-top:6px"><b>edit, run and transfer are never granted on this kind</b>, not even to platform admins: <code>${KINDS[r.kind].sourceOwned}</code> is the author. Join, leave and rename happen in the identity provider and arrive here on the next sync.</div>` : ""}<div class="note" style="margin-top:6px">Not one of these rows is configured on the resource. Each is a graph walk: resource → effectiveOwner team → backing identity group → nested groups → user, plus the kind's visibility and the platform grants.</div></div>`);
+  out.push(`<div class="block"><h3>Kind rule</h3><div class="note">
+    <span class="pill ${visOf(r.kind)}">visibility: ${visOf(r.kind)}</span>
+    ${visOf(r.kind) === "org" ? " any authenticated user may read identity and ownership fields; sensitive properties stay redacted." : " only owning-team members, kind editors and platform admins/auditors may read it."}
+  </div></div>`);
+  return out.join("");
+}
+
+function actionsView(ref) {
+  const r = S.res[ref], k = KINDS[r.kind], acc = access(S.viewer, ref), out = [];
+  const teams = Object.keys(S.res).filter((x) => x.startsWith("team:"));
+  const comps = Object.keys(S.res).filter((x) => x.startsWith("component:"));
+  const grantsLink = Object.keys(k.links).find((n) => k.links[n].ownership === "grants");
+
+  if (grantsLink) {
+    const cur = vals(r, grantsLink)[0] || null;
+    const locked = !acc.transfer;
+    out.push(`<div class="action ${locked ? "locked" : ""}">
+      <h4>Transfer ownership</h4>
+      <p>Rewrites the one link that grants ownership (<code>${r.kind}.${grantsLink}</code>). Everything that inherits from this resource moves with it.</p>
+      <div class="ctl">
+        <select id="xfer" ${locked ? "disabled" : ""}>${teams.map((t) => `<option value="${t}" ${t === cur ? "selected" : ""}>${t}</option>`).join("")}<option value="">— clear (make it inherit) —</option></select>
+        <button class="btn primary sm" id="xfer-go" ${locked ? "disabled" : ""}>Transfer</button>
+      </div>
+      ${locked ? `<div class="deny-note">denied: Check(${S.viewer}, can_transfer, ${ref}) = false — can_transfer is <code>admin from kind</code>. Act as Frank.</div>` : ""}
+    </div>`);
+  }
+  if (k.links.component) {
+    const cur = vals(r, "component")[0] || "";
+    const tagKey = k.provider === "aws" ? "platform:component tag" : k.provider === "k8s" ? "platform.acme.io/component label" : "catalog file in the repo";
+    out.push(`<div class="action">
+      <h4>Re-tag in ${k.provider === "aws" ? "AWS" : k.provider === "k8s" ? "Kubernetes" : "GitHub"}</h4>
+      <p>Ownership of infrastructure is not set in the catalog — it is the ${tagKey}. Changing it here simulates the <code>${r.src}</code> source re-ingesting, so the actor on the change is the source, not you.</p>
+      <div class="ctl">
+        <select id="tagc">${comps.map((c) => `<option value="${c}" ${c === cur ? "selected" : ""}>${c}</option>`).join("")}<option value="" ${cur ? "" : "selected"}>— no tag (unowned) —</option></select>
+        <button class="btn primary sm" id="tag-go">Apply tag</button>
+      </div>
+    </div>`);
+  }
+  if (r.kind === "team") {
+    const groups = Object.keys(S.res).filter((x) => x.startsWith("identity_group:"));
+    const backing = vals(r, "backedBy");
+    out.push(`<div class="action ${isPlatformAdmin(S.viewer) ? "" : "locked"}">
+      <h4>Backing identity groups</h4>
+      <p>The team record itself is not editable here: <code>source:hris</code> owns the org unit, name, cost centre and manager, <code>source:pagerduty</code> owns the rota, and the groups themselves — with who is in them — are <code>entra-id</code>'s and cannot be created or edited here. This binding is the one fact the catalog owns — and only because neither side carries a usable cross-reference. One link change here moves access for every resource the team owns.</p>
+      <div class="members">${groups.map((g) => `<div class="memrow"><span class="mn">${esc(g.split(":")[1])}</span><span class="note">${groupUsers(g).length} users</span>
+        <span class="sp"><button class="btn sm" data-back="${g}" ${isPlatformAdmin(S.viewer) ? "" : "disabled"}>${backing.includes(g) ? "Remove" : "Add"}</button></span></div>`).join("")}</div>
+      ${isPlatformAdmin(S.viewer) ? "" : `<div class="deny-note">denied: the spine↔group binding is a privileged write; platform admins only.</div>`}
+    </div>`);
+  }
+  if (k.sourceOwned) {
+    out.push(`<div class="idp-banner"><b>Not defined in the platform.</b> <code>${r.kind}</code> records are mirrored from <code>${k.sourceOwned}</code> on an hourly full reconciliation plus a delta feed every few minutes (§3.5). The catalog API has no write path for them: as <b>${S.viewer}</b>${isPlatformAdmin(S.viewer) ? ", a platform admin," : ""} a write answers
+      <div class="deny-note" style="margin-top:4px">PATCH /resources/${esc(ref.replace(":", "/"))} → 405 Method Not Allowed — kind ${r.kind} is source-owned by ${k.sourceOwned}</div>
+      The controls below do not edit the catalog. They simulate a change made <em>in the identity provider</em> arriving on the feed, which is why the actor on every resulting log entry is <code>source:${k.sourceOwned}</code>, never a person.</div>`);
+  }
+  if (r.kind === "identity_group") {
+    const users = VIEWERS.map((v) => v.ref), mem = vals(r, "members");
+    out.push(`<div class="action" style="border-left-color:var(--idp)">
+      <h4>Simulate: membership changed in Entra ID</h4>
+      <p>An admin adds or removes a member in the IdP's own console. Nothing is typed into the catalog; it learns the new state from the feed.</p>
+      <div class="members">${users.map((u) => `<div class="memrow"><span class="mn">${esc(u)}</span><span class="note">${esc(S.res[u].title)}</span>
+        <span class="sp"><button class="btn sm" data-mem="${u}">${mem.includes(u) ? "Remove in IdP" : "Add in IdP"}</button></span></div>`).join("")}</div>
+    </div>`);
+  }
+  if (r.kind === "user") {
+    const groups = Object.keys(S.res).filter((x) => x.startsWith("identity_group:") && vals(S.res[x], "members").includes(ref));
+    out.push(`<div class="action" style="border-left-color:var(--idp)">
+      <h4>Simulate: offboarded in Entra ID</h4>
+      <p>HR disables the account; the IdP drops it from every group. The catalog is told, not asked: the user's access to everything the groups' teams own disappears on the next sync, with no catalog change by anyone.</p>
+      <div class="note" style="margin-bottom:6px">Currently in: ${groups.length ? groups.map((g) => `<code>${esc(g.split(":")[1])}</code>`).join(", ") : "<i>no groups</i>"}</div>
+      <div class="ctl"><button class="btn primary sm" id="offboard-go" ${groups.length ? "" : "disabled"}>Offboard in IdP</button></div>
+    </div>`);
+  }
+  if (!out.length) out.push(`<div class="empty">No demo action on this kind. Pick a component, a system, an infrastructure resource, a team, a group or a user.</div>`);
+  out.push(`<div class="note" style="margin-top:4px"><b>Every change on this panel</b> appends to the change log, republishes OpenFGA tuples, and re-runs the ownership resolver for everything downstream. Nothing is configured per resource.</div>`);
+  return out.join("");
+}
+
+function tuplesView(ref) {
+  const all = tuples();
+  const mine = all.filter((t) => t.includes(ref.replace(":", "/")) || t.includes(ref));
+  const out = [];
+  out.push(`<div class="block"><h3>Tuples touching this resource</h3>${mine.length ? mine.map((t) => `<div class="tuple">${esc(t)}</div>`).join("") : `<div class="empty">none</div>`}</div>`);
+  if (lastDiff && (lastDiff.added.length || lastDiff.removed.length)) {
+    out.push(`<div class="block"><h3>Last change, as tuple writes</h3>`);
+    lastDiff.removed.forEach((t) => out.push(`<div class="tuple rm">− ${esc(t)}</div>`));
+    lastDiff.added.forEach((t) => out.push(`<div class="tuple add">+ ${esc(t)}</div>`));
+    out.push(`<div class="note" style="margin-top:6px">The catalog API is the only writer of tuples and the only caller of <code>Check</code>. The resolver computed <code>effectiveOwners</code>; OpenFGA received the result and does not re-derive it.</div></div>`);
+  }
+  out.push(`<div class="block"><h3>Whole store <span class="note">(${all.length} tuples)</span></h3>${all.map((t) => `<div class="tuple">${esc(t)}</div>`).join("")}</div>`);
+  return out.join("");
+}
+
+function logView() {
+  if (!S.log.length) return `<div class="empty">No changes yet. Use the Change tab, or the guided tour, and every write lands here: <code>(resourceRef, actor, timestamp, diff, reason)</code>.</div>`;
+  return S.log.map((e) => `<div class="logitem">
+    <div class="lh"><span class="ts">${esc(e.ts)}</span><span class="actor ${e.actor.startsWith("source:") ? "src" : "usr"}">${esc(e.actor)}</span></div>
+    <div class="diff">${esc(e.ref)} — ${e.diff}</div>
+    <div class="reason">${esc(e.reason)}</div></div>`).join("");
+}
+
+function renderInspector() {
+  const r = S.res[sel];
+  document.getElementById("iref").textContent = sel;
+  document.getElementById("ititle").textContent = r.title;
+  document.getElementById("tabs").innerHTML = TABS.map(([id, label]) =>
+    `<button role="tab" aria-selected="${tab === id}" data-tab="${id}">${label}</button>`).join("");
+  document.getElementById("tabs").querySelectorAll("button").forEach((b) =>
+    b.addEventListener("click", () => { tab = b.dataset.tab; renderInspector(); }));
+  const panes = document.getElementById("panes");
+  const blocked = !access(S.viewer, sel).view && tab !== "resource" && tab !== "access";
+  panes.innerHTML = blocked
+    ? `<div class="empty">You cannot view this resource, so there is nothing to show here. Open the <b>Access</b> tab to see why, or the <b>Resource</b> tab for the API response you would get.</div>`
+    : tab === "resource" ? yamlView(sel)
+    : tab === "ownership" ? ownershipView(sel)
+    : tab === "access" ? accessView(sel)
+    : tab === "actions" ? actionsView(sel)
+    : tab === "tuples" ? tuplesView(sel)
+    : logView();
+  wireActions();
+}
+
+function wireActions() {
+  const r = S.res[sel];
+  const go = document.getElementById("xfer-go");
+  if (go) go.addEventListener("click", () => {
+    const to = document.getElementById("xfer").value;
+    const link = Object.keys(KINDS[r.kind].links).find((n) => KINDS[r.kind].links[n].ownership === "grants");
+    const from = vals(r, link)[0] || "∅";
+    if (to === from) return;
+    applyChange(() => { if (to) r.links[link] = to; else delete r.links[link]; },
+      S.viewer, sel, `links.${link}: ${from} → ${to || "∅"}`,
+      to ? `Ownership transferred. effectiveOwners recomputed for this resource and everything inheriting from it.` : `Grant link cleared — ownership now inherits, or the resource becomes unowned.`);
+  });
+  const tg = document.getElementById("tag-go");
+  if (tg) tg.addEventListener("click", () => {
+    const to = document.getElementById("tagc").value, from = vals(r, "component")[0] || "∅";
+    if (to === from) return;
+    applyChange(() => { if (to) r.links.component = to; else delete r.links.component; },
+      "source:" + r.src, sel, `links.component: ${from} → ${to || "∅"}`,
+      to ? `Source re-ingested with a component tag; the inherits path now reaches a team.` : `Component tag removed; the resource falls back to unowned.`);
+  });
+  document.querySelectorAll("[data-back]").forEach((b) => b.addEventListener("click", () => {
+    const g = b.dataset.back, cur = vals(r, "backedBy"), has = cur.includes(g);
+    applyChange(() => { r.links.backedBy = has ? cur.filter((x) => x !== g) : cur.concat(g); },
+      S.viewer, sel, `links.backedBy: ${has ? "−" : "+"} ${g}`,
+      has ? `Group removed from the team; its members lose access to everything the team owns.` : `Group added behind the team; its members gain access to everything the team owns.`);
+  }));
+  const ob = document.getElementById("offboard-go");
+  if (ob) ob.addEventListener("click", () => {
+    const groups = Object.keys(S.res).filter((x) => x.startsWith("identity_group:") && vals(S.res[x], "members").includes(sel));
+    applyChange(() => { groups.forEach((g) => { S.res[g].links.members = vals(S.res[g], "members").filter((m) => m !== sel); }); },
+      "source:entra-id", sel, `members: removed from ${groups.map((g) => g.split(":")[1]).join(", ")}`,
+      `Account disabled in the identity provider; the feed removed the user from every group. No catalog write by any person — access fell away because the graph no longer reaches the user.`);
+  });
+  document.querySelectorAll("[data-mem]").forEach((b) => b.addEventListener("click", () => {
+    const u = b.dataset.mem, cur = vals(r, "members"), has = cur.includes(u);
+    applyChange(() => { r.links.members = has ? cur.filter((x) => x !== u) : cur.concat(u); },
+      "source:entra-id", sel, `links.members: ${has ? "−" : "+"} ${u}`,
+      has ? `Removal propagates to OpenFGA within the delta interval — the one fact where staleness is a security issue (§3.5).` : `New member; access follows immediately on the next tuple sync.`);
+  }));
+}
+
+/* ===========================================================================
+   Rail: viewer bar, stats, visibility, tour
+   =========================================================================== */
+function renderWho() {
+  const w = document.getElementById("who");
+  w.innerHTML = VIEWERS.map((v) => `<button aria-pressed="${S.viewer === v.ref}" data-v="${v.ref}"><span class="n">${v.name}</span><span class="r">${v.role}</span></button>`).join("");
+  w.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => { S.viewer = b.dataset.v; render(); }));
+}
+function renderStats() {
+  const refs = Object.keys(S.res).filter((r) => !r.startsWith("user:"));
+  const visible = refs.filter(canSee).length;
+  const infra = refs.filter((r) => ["repository", "k8s_workload", "aws_sqs_queue", "aws_rds_instance"].includes(S.res[r].kind));
+  const unowned = refs.filter((r) => !["team", "identity_group"].includes(S.res[r].kind) && !owners(r).length);
+  const me = S.viewer;
+  document.getElementById("stats").innerHTML = `
+    <div class="stat"><span class="k">Resources you can view</span><span class="v">${visible} / ${refs.length}</span></div>
+    <div class="stat"><span class="k">Infrastructure you can view</span><span class="v">${infra.filter(canSee).length} / ${infra.length}</span></div>
+    <div class="stat"><span class="k">Your teams</span><span class="v">${userTeams(me).map((t) => t.split(":")[1]).join(", ") || "—"}</span></div>
+    <div class="stat"><span class="k">Platform admin</span><span class="v ${isPlatformAdmin(me) ? "ok" : ""}">${isPlatformAdmin(me) ? "yes" : "no"}</span></div>
+    <div class="stat"><span class="k">Unowned resources</span><span class="v ${unowned.length ? "warn" : "ok"}">${unowned.length}</span></div>
+    <div class="stat"><span class="k">Identity records from IdP</span><span class="v">${Object.keys(S.res).filter((r) => KINDS[S.res[r].kind].sourceOwned).length} · read-only</span></div>
+    <div class="stat"><span class="k">OpenFGA tuples</span><span class="v">${tuples().length}</span></div>`;
+}
+function renderVis() {
+  const kinds = ["component", "system", "aws_sqs_queue", "k8s_workload", "repository"];
+  document.getElementById("vis").innerHTML = kinds.map((k) => `
+    <div class="toggle-row"><span class="lbl mono" style="font-size:11px">${k}</span>
+      <span class="seg">${["owner", "org"].map((v) => `<button aria-pressed="${visOf(k) === v}" data-k="${k}" data-v="${v}">${v}</button>`).join("")}</span></div>`).join("");
+  document.getElementById("vis").querySelectorAll("button").forEach((b) => b.addEventListener("click", () => {
+    const k = b.dataset.k, v = b.dataset.v;
+    if (visOf(k) === v) return;
+    applyChange(() => { S.vis[k] = v; }, S.viewer, "kind:" + k, `visibility: ${visOf(k)} → ${v}`,
+      v === "org" ? `Kind is now discoverable org-wide; sensitive properties stay redacted for non-owners.` : `Kind is owner-only; non-owners lose it from search, lists and traversals.`);
+  }));
+}
+
+const TOUR = [
+  { t: "The map", b: "Six columns, one graph. People and groups on the left are a projection of the <b>identity provider</b>; infrastructure on the right is a projection of <b>GitHub, Kubernetes and AWS</b> — nobody creates or edits any of them here. So is the middle: teams come from the HR system, the IdP and the on-call tool; systems from what the components themselves declare. The catalog owns only overrides. Click any box.",
+    go: null },
+  { t: "People come from the IdP", b: "Pick <b>Bob</b>. Users and groups are not defined in the platform: every record on the left is mirrored from <code>entra-id</code>. The Change tab shows the write path does not exist, even for Frank the admin — only a simulated IdP feed. Try <b>Offboard in IdP</b> and watch his access fall away with no catalog write.",
+    go: () => { S.viewer = "user:frank"; sel = "user:bob"; tab = "actions"; } },
+  { t: "Ownership is a link", b: "The selected SQS queue has no owner field. Its ownership is inferred: <code>--component--&gt;</code> checkout-service <code>--owner--&gt;</code> payments. Open the <b>Ownership</b> tab to see the resolver's steps.",
+    go: () => { sel = "aws_sqs_queue:prod-4711/checkout-events"; tab = "ownership"; } },
+  { t: "Access follows the graph", b: "Switch to <b>Carol</b> in Search. The payments infrastructure locks — no ACL was changed, there simply is no path from those resources to her. Components stay visible because that kind is <code>org</code>.",
+    go: () => { S.viewer = "user:carol"; sel = "aws_rds_instance:prod-4711/checkout-db"; tab = "access"; } },
+  { t: "Changing ownership", b: "Move <b>checkout-service</b> to team Search. One link; the repo, the workload, the queue and the database follow, Alice loses them and Carol gains them. Only a platform admin may do it — <code>can_transfer</code> is <code>admin from kind</code>.",
+    go: () => { S.viewer = "user:frank"; sel = "component:checkout-service"; tab = "actions"; } },
+  { t: "Unowned is a state", b: "<b>legacy-orders-dlq</b> carries no <code>platform:component</code> tag, so nothing resolves and only platform admins see it. Tag it in AWS and it joins the map — the actor on that change is the source, not a person.",
+    go: () => { sel = "aws_sqs_queue:prod-4711/legacy-orders-dlq"; tab = "actions"; } },
+  { t: "Membership is the last mile", b: "Ownership points at a <b>team</b>, never at a group, so IT can reorganise the group tree in Entra ID without ownership churn. Remove Bob from <code>eng-payments</code> <em>in the IdP</em> and watch his access go — the one fact where staleness is a security issue. The catalog only ever receives it.",
+    go: () => { sel = "identity_group:eng-payments"; tab = "actions"; } },
+  { t: "The visibility trade-off", b: "Flip <code>component</code> to <code>owner</code> in the rail. Strictly correct, and now Carol cannot see that checkout-service exists at all — no dependency map, no \"who do I call\". That is the open question in §8.1.",
+    go: () => { S.viewer = "user:carol"; sel = "component:checkout-service"; tab = "access"; } },
+];
+function renderTour() {
+  const s = TOUR[tourStep];
+  document.getElementById("tour").innerHTML = `
+    <div class="tour-step"><span class="num">${tourStep + 1}</span><b style="font-family:var(--cond);font-size:13.5px">${s.t}</b></div>
+    <div class="tour-body">${s.b}</div>
+    <div class="tour-nav">
+      <button class="btn sm" id="t-prev" ${tourStep === 0 ? "disabled" : ""}>Back</button>
+      <button class="btn sm primary" id="t-next" ${tourStep === TOUR.length - 1 ? "disabled" : ""}>Next</button>
+      <span class="count">${tourStep + 1} / ${TOUR.length}</span>
+    </div>`;
+  document.getElementById("t-prev").addEventListener("click", () => { tourStep--; const g = TOUR[tourStep].go; if (g) g(); render(); });
+  document.getElementById("t-next").addEventListener("click", () => { tourStep++; const g = TOUR[tourStep].go; if (g) g(); render(); });
+}
+
+function render() { renderWho(); renderStats(); renderVis(); renderTour(); renderGraph(); renderInspector(); }
+
+document.getElementById("reset").addEventListener("click", () => { resetState(); render(); });
+resetState(); layout(); render();
+</script>
