@@ -16,12 +16,19 @@ def datadog_adapter(verb, params):
               f"'tags': ['severity:{params['severity']}']}}")
 
 
+# Placeholder environment ID. Real Dynatrace SaaS URLs are
+# https://<environment-id>.live.dynatrace.com; a real adapter would take this
+# from the binding's provider config, never from the developer's request.
+DYNATRACE_ENVIRONMENT_ID = "abc12345"
+DYNATRACE_BASE_URL = f"https://{DYNATRACE_ENVIRONMENT_ID}.live.dynatrace.com"
+
+
 def dynatrace_adapter(verb, params):
     if verb == "emit-metric":
-        print(f"    POST https://.live.dynatrace.com/api/v2/metrics/ingest")
+        print(f"    POST {DYNATRACE_BASE_URL}/api/v2/metrics/ingest")
         print(f"    body: '{params['name']},type={params['type']} value'")
     elif verb == "define-alert":
-        print(f"    POST https://.live.dynatrace.com/api/config/v1/anomalyDetection/metricEvents")
+        print(f"    POST {DYNATRACE_BASE_URL}/api/config/v1/anomalyDetection/metricEvents")
         print(f"    body: {{'metricId': '{params['metric']}', 'threshold': '{params['condition']}', "
               f"'severity': '{params['severity']}'}}")
 
