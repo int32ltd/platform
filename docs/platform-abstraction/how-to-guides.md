@@ -3,6 +3,33 @@
 Task-oriented recipes. Each assumes the contract/adapter/binding pattern from
 [tutorial.md](./tutorial.md) and the schemas in [reference.md](./reference.md).
 
+## How to roll out the pattern on a first real capability
+
+Use a low-risk capability you already run (observability is a good first
+choice) and a throwaway service.
+
+1. **Write the capability contract** (`contracts/<capability>.yaml`). Keep the
+   verb set small and free of anything specific to the vendor you run today.
+2. **Write two provider adapters** (`adapters/<capability>/<vendor>/`), one for
+   the current vendor and one for an alternative. Keep them to translation
+   only. Both must pass the same contract test suite (see
+   [reference.md](./reference.md#provider-adapter)) before you wire
+   anything else up.
+3. **Write the binding policy** (`bindings/<capability>.yaml`), the only file
+   that names a vendor, ending in a `*`/`*` default rule.
+4. **Wire a golden-path template** that references the contract and never a
+   vendor. Scaffold a test service from it and confirm the resources appear in
+   the default vendor. Then flip the default rule to the alternative vendor and
+   re-provision the same service with no template change.
+5. **Register the service in the catalog** with an owning team. Confirm the
+   policy engine grants that team access, and that the sync controller has
+   created the matching role or group in whichever vendor the binding policy
+   selected. Change the owner, re-run the sync controller, and confirm access
+   moved after editing only that one field.
+
+If all five steps hold, the pattern works for that capability. Widen it with
+the guides below.
+
 ## How to add a new provider adapter for an existing capability
 
 1. Implement every verb in the capability contract against the new vendor.

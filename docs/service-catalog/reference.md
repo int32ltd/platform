@@ -1,75 +1,29 @@
-# Service Catalog design
+# Service Catalog reference
 
-The catalog is the platform's **resource map**: a continuously refreshed store of
-everything the organisation runs (services, repos, workloads, cloud resources,
-teams, people, incidents, ...) and how those things relate. It is populated by
-ingestion from many sources and is the thing agents, reports, scorecards and
-self-service actions query — instead of hitting the live systems themselves.
-
-It is the concrete implementation of Layer 3 ("Policy & Ownership Graph") in
-[`../platform-abstraction/`](../platform-abstraction/README.md). This document
-goes one level deeper: the data model, the permission model, how data gets in,
-how it gets queried, and what is derived from it.
-
-The one requirement that shapes everything else: **permissions are part of the
-map.** An identity group (from Entra ID, Okta, Zitadel, or any other identity
-provider) is a resource like any other. Ownership is a link. Who
-may see or act on a resource is *inferred from the graph* (resource → owning team
-→ backing identity group → members), never configured per resource by hand.
+Precise specs for the catalog: schemas, the authorization model, ingestion
+rules, the API. No rationale here; see [explanation.md](./explanation.md) for
+why it is built this way. To see the model working, open the
+[ownership demo](../../demos/service-catalog-ownership/).
 
 Contents:
 
-1. [Goals and non-goals](#1-goals-and-non-goals)
-2. [Data model: kinds, resources, links](#2-data-model)
-3. [Permission model](#3-permission-model)
-4. [Ingestion](#4-ingestion)
-5. [Query and agent access](#5-query-and-agent-access)
-6. [Derived data: scorecards, reports, actions](#6-derived-data)
-7. [Storage and components](#7-storage-and-components)
-8. [Decisions and open questions](#8-decisions-and-open-questions)
+- [Kinds](#kinds)
+- [Resources](#resources)
+- [Built-in kinds](#built-in-kinds)
+- [Ownership resolution](#ownership-resolution)
+- [Link integrity](#link-integrity)
+- [Authorization model](#authorization-model)
+- [Visibility](#visibility)
+- [Enforcement points](#enforcement-points)
+- [Group membership freshness](#group-membership-freshness)
+- [Ingestion](#ingestion)
+- [Query API](#query-api)
+- [Derived data](#derived-data)
+- [Storage](#storage)
 
 ---
 
-## 1. Goals and non-goals
-
-**Goals**
-
-- One queryable map of resources and links, refreshed from many sources,
-  with provenance and freshness on every fact.
-- Schema defined as data ("kinds"), so a new resource type or link is a
-  config change, not a deploy.
-- Ownership inferred from links, and access derived from ownership plus
-  identity-group membership. No per-resource ACLs.
-- Read path cheap enough that agents and dashboards hit the catalog, not the
-  source systems.
-- Every change auditable: who/what changed which fact, when, from which source.
-- Derived views (scorecards, reports) and side effects (self-service actions)
-  built on the same model and the same permission check.
-
-**Non-goals**
-
-- Being the source of truth for the source systems. GitHub owns repos, Entra ID
-  owns groups, Kubernetes owns workloads. The catalog is a projection, with one
-  exception: facts that have no other home (manual ownership overrides, tier,
-  lifecycle, kind definitions themselves, action definitions).
-- Real-time consistency with sources. Freshness is tracked and exposed, not
-  guaranteed.
-- A human portal. The API/CLI/MCP surface is primary; a UI is optional and
-  sits on the same API.
-
----
-
-## 2. Data model
-
-Three concepts: **kind** (a type), **resource** (an instance of a kind), and
-**link** (a typed, directed edge declared on a kind). Everything else —
-ownership, permissions, scorecards — is expressed in terms of these.
-
-In this document "resource" always means a catalog resource. Things in the
-source systems are called by their own names: cloud resources, workloads,
-repositories, groups.
-
-### 2.1 Kind
+## Kinds
 
 A kind is a versioned document. Properties are JSON Schema; links are
 first-class, not just string properties that happen to hold an id.
@@ -90,7 +44,7 @@ links:
   owner:
     target: team
     many: false
-    required: false          # may be inherited, see 2.4
+    required: false          # may be inherited, see Ownership resolution
     ownership: grants        # this link *defines* the owner of this resource
   system:
     target: system
@@ -102,9 +56,9 @@ links:
   repo:
     target: repository
     many: false
-visibility: owner           # owner | org   (default: owner, see 3.3)
+visibility: owner           # owner | org   (default: owner, see Visibility)
 identity:
-  # how ingestion resolves "which resource is this" — see 4.3
+  # how ingestion resolves "which resource is this" — see Identity resolution
   keys: [repoUrl]
 ```
 
@@ -122,7 +76,7 @@ Rules:
   built-in kind `kind`, so the same audit, API and permission path applies to
   schema changes.
 
-### 2.2 Resource
+## Resources
 
 ```yaml
 kind: component
@@ -142,20 +96,20 @@ links:
 meta:
   createdAt: 2026-11-12T09:14:03Z
   updatedAt: 2026-11-12T10:02:11Z
-  sources:                             # provenance per source, see 4.4
+  sources:                             # provenance per source, see Merging and provenance
     - { source: github, lastSeenAt: 2026-11-12T10:02:11Z, externalId: "R_kgDOAbc" }
     - { source: manual, lastSeenAt: 2026-10-01T08:00:00Z }
   propertyProvenance:
     lifecycle: manual
     language: github
     repoUrl: github
-  effectiveOwners: [team:payments]     # derived, see 2.4
+  effectiveOwners: [team:payments]     # derived, see Ownership resolution
 ```
 
 Resource references are `<kind>:<identifier>`. That string is the stable id
 used by the API, OpenFGA tuples, and every downstream consumer.
 
-### 2.3 Built-in kinds
+## Built-in kinds
 
 The platform ships these; they can be extended but not removed, because the
 permission model depends on them.
@@ -164,80 +118,36 @@ permission model depends on them.
 |---|---|---|
 | `user` | A person or service principal | Identity provider (Entra ID, Okta, Zitadel, ...) |
 | `identity_group` | A group whose membership the identity provider asserts. Has `members: [user \| identity_group]` (where the provider nests groups, nesting is kept; flattening happens in the policy engine, not here) | Identity provider |
-| `team` | The organisational unit that owns things. Has `backedBy: [identity_group]` (one or more) | HR system for the record, identity provider for membership, on-call tool for corroboration — never git (2.3.1) |
+| `team` | The organisational unit that owns things. Has `backedBy: [identity_group]` (one or more) | HR system for the record, identity provider for membership, on-call tool for corroboration — never git ([Where team and system come from](./explanation.md#where-team-and-system-come-from)) |
 | `kind` | Kind definitions themselves | Manual / git |
-| `action` | Self-service action definition (6.3) | Manual / git |
+| `action` | Self-service action definition ([Self-service actions](#self-service-actions)) | Manual / git |
 | `action_run` | One invocation of an action | Action runner |
-| `scorecard` | Scorecard definition (6.1) | Manual / git |
-| `source` | An ingestion source and its mapping (4.2) | Manual / git |
+| `scorecard` | Scorecard definition ([Scorecards](#scorecards)) | Manual / git |
+| `source` | An ingestion source and its mapping ([Source mapping](#source-mapping)) | Manual / git |
 
-`team` is kept distinct from `identity_group` on purpose. Groups are an identity
-provider artefact: there are usually several per team (`eng-payments`,
-`eng-payments-oncall`, `payments-prod-deployers`), they get renamed, and
-ownership should not churn when IT reorganises the group tree. A team is the
-stable thing resources point at; which groups back it is one link that can
-change.
+### Sources of `team` and `system`
 
-### 2.3.1 Where `team` and `system` come from
-
-A source is authoritative when someone else already maintains it for their own
-reasons and it costs *them* when it is wrong. Git passes that test for platform
-configuration — kinds, actions, scorecards, source mappings — which is code:
-reviewed, versioned, deployed, and broken loudly when wrong. It fails that test
-for organisational facts. A `teams.yaml` is a copy of the org chart that nobody's
-workflow depends on, so nobody notices when it rots — and the catalog would then
-be inferring ownership, and therefore access, from the stalest file in the
-repository.
-
-So `team` is not one source's record. It is assembled from three, each owning
-the facts it is genuinely responsible for:
+`team` is assembled from three sources, merged with the ordinary provenance
+rules ([Merging and provenance](#merging-and-provenance)):
 
 | Fact | Source | Why that one |
 |---|---|---|
 | existence, name, parent unit, cost centre, manager | HR system (Workday, Personio, HiBob, ...) | the organisation's own record of its units, with a stable `orgUnitId` to key on |
-| membership | identity provider (3.5) | already the source for `identity_group`; joined to the team by an org-unit attribute carried on the group, not by a name pattern |
+| membership | identity provider ([Group membership freshness](#group-membership-freshness)) | already the source for `identity_group`; joined to the team by an org-unit attribute carried on the group, not by a name pattern |
 | who is accountable for production right now | on-call / incident tool (PagerDuty, Opsgenie, ...) | the one place where being wrong hurts within the hour, so it is the freshest thing in the organisation |
 
 `identity.keys: [orgUnitId]`, so the team survives a rename in any of the three.
-The catalog merges them with the ordinary provenance rules (4.4): HR owns the
-descriptive properties, the identity provider owns membership, the on-call tool
-owns the rota.
 
-The known weakness is that HR org units and engineering squads frequently do not
-match — HR models reporting lines, engineering works in squads that re-form
-faster than HR records them. Where the organisation models squads somewhere else
-(the on-call tool, a team directory), *that* tool is the spine and the HR system
-enriches it with hierarchy and cost centre. Which one is the spine is an
-organisation-specific choice (8.2); the rule that does not vary is that the
-spine is a system somebody else maintains for their own reasons.
+`system` membership is declared by components (the catalog file in each
+repository names its system) and ingested from GitHub; the `system` resource is
+created on first reference by dangling-edge resolution
+([Link integrity](#link-integrity)) and flagged `meta.unmatched` until claimed.
+Its descriptive properties and `owner` link come from the portfolio or product
+tool where one exists, otherwise from a catalog-owned override.
 
-Git keeps at most the join between spine and groups, and only where neither side
-carries a usable cross-reference. That residue is measured, reported, and driven
-to zero rather than treated as the design. The reports that keep it honest
-(6.2): org units with no backing group, teams owning a tier-1 component with no
-rotation, on-call teams matching no catalog team, groups matching the org-unit
-pattern that no team references.
+Why these sources and not git: [explanation.md](./explanation.md#where-team-and-system-come-from).
 
-**`system`** has no HR or identity equivalent — it is an architecture grouping,
-not an organisational one — so it is sourced differently again. Its membership is
-declared by the components themselves: the catalog file in each repository names
-the system it belongs to, exactly as a Kubernetes label names a component (4.3).
-GitHub is therefore the source, and the `system` resource is materialised from
-the union of those declarations, created on first reference by dangling-edge
-resolution (2.5) and flagged `meta.unmatched` until something claims it. Its
-descriptive properties — business name, domain, product owner — and its `owner`
-link come from the portfolio or product tool where the organisation runs one
-(Jira product hierarchy, ServiceNow business services, an architecture
-repository).
-
-Where no such tool exists, a system's `owner` is a catalog-owned override. That
-is legitimate: it is a fact with no other home, which section 1 already reserves
-to the catalog. The distinction worth holding onto is that **git holds overrides
-and platform configuration, never records** — and ownership-coverage reports
-should show what share of the map currently rests on overrides, because that
-share is the design's technical debt.
-
-### 2.4 Ownership inference
+## Ownership resolution
 
 Ownership is never a free-text field. It is computed:
 
@@ -249,17 +159,17 @@ Ownership is never a free-text field. It is computed:
    depth limit.
 3. If nothing resolves, the resource is **unowned**. Unowned is a first-class
    state: it shows up in reports, is scoreable, and by default is visible only
-   to platform admins (3.3).
+   to platform admins ([Visibility](#visibility)).
 
 The result is written to `meta.effectiveOwners` and recomputed whenever the
 resource, or anything on its inheritance path, changes. This single resolver is
-the only place ownership logic lives. OpenFGA (section 3) receives
+the only place ownership logic lives. OpenFGA ([Authorization model](#authorization-model)) receives
 `effectiveOwners` as plain tuples and does not re-derive it. The query layer
 filters on the same column. One implementation, three consumers.
 
 Example path: `aws_rds_instance:prod-checkout-db --component--> component:checkout-service --owner--> team:payments --backedBy--> identity_group:eng-payments --members--> user:alice`.
 
-### 2.5 Link integrity
+## Link integrity
 
 - A link may point at a resource that does not exist yet (ingestion order
   is not controllable). Such edges are stored as **dangling** and resolved when
@@ -270,24 +180,11 @@ Example path: `aws_rds_instance:prod-checkout-db --component--> component:checko
   restarts, repo renames) reattaches cleanly.
 - Cardinality (`many: false`) is validated on write.
 
----
-
-## 3. Permission model
-
-### 3.1 Principle
-
-Access is a function of the graph: a user can act on a resource when there is a
-path `resource → effectiveOwner team → backing identity group → (nested groups) →
-user`, or when a kind-level or platform-level grant says so. There are no
-resource-level ACLs. Changing who can see or edit a service means changing a
-link (move the service to another team, add a group behind the team),
-which is itself an audited catalog write.
+## Authorization model
 
 The catalog stores the facts. **OpenFGA** evaluates the decision. The catalog
 API is the only writer of tuples and the only caller of `Check`/`ListObjects`;
 nothing else talks to OpenFGA directly.
-
-### 3.2 Authorization model
 
 ```
 model
@@ -335,10 +232,10 @@ type resource
 type action
   relations
     define kind: [kind]
-    define runner: [team#member, identity_group#member]   # optional narrowing, see 6.3
+    define runner: [team#member, identity_group#member]   # optional narrowing, see Self-service actions
 ```
 
-Tuples written by the catalog, from the example in 2.2:
+Tuples written by the catalog, from the example in [Resources](#resources):
 
 ```
 identity_group:eng-payments#member@user:alice
@@ -357,14 +254,9 @@ kind), adding a kind never changes the authorization model. The
 kind-level OpenFGA relations (`org_viewer`, `editor`) are how a kind's
 `visibility` and any wide grants are expressed.
 
-### 3.3 Visibility defaults and the trade-off
+## Visibility
 
-The requirement is: only members of the owning group can view or work on an
-resource. That is the default: `visibility: owner`.
-
-This has a real cost for a catalog: dependency maps, "who do I call about
-service X", and cross-team reports all need other teams' resources to be at
-least discoverable. The design therefore supports, per kind:
+Set per kind with `visibility`. Default is `owner`.
 
 | `visibility` | Who can read | Typical use |
 |---|---|---|
@@ -377,29 +269,18 @@ but those properties are redacted unless `can_view` passes. This is what lets
 "everyone can see that checkout-service exists and payments owns it; only
 payments sees its on-call rota and cost" work without per-resource rules.
 
-The recommendation is to run the built-in `team`, `system` and `component`
-kinds as `org` with sensitive properties redacted, and everything else as
-`owner`. This is a policy choice for the platform owners; the mechanism
-supports either.
-
-### 3.4 Enforcement points
+## Enforcement points
 
 | Path | Check |
 |---|---|
 | `GET /resources/{id}` | `Check(user, can_view, resource)` |
 | Search / list / graph traversal | `ListObjects(user, can_view, resource)` intersected with the query; for large tenants, the query layer instead filters on `effectiveOwners ∩ userTeams` plus kind visibility, which is the same rule precomputed. Both paths exist; a consistency test compares them nightly. |
 | Write (manual edit, API) | `Check(user, can_edit, resource)`; ownership-changing writes need `can_transfer` |
-| Ingestion write | Source identity, not user identity. A `source` resource declares which kinds it may write and which properties it owns (4.4). |
+| Ingestion write | Source identity, not user identity. A `source` resource declares which kinds it may write and which properties it owns ([Merging and provenance](#merging-and-provenance)). |
 | Run action | `Check(user, can_run_action, resource)` and, if the action has `runner` tuples, `Check(user, runner, action)` |
 | Scorecard / report read | Same as resource read; reports aggregate only over resources the caller can view |
 
-Agents are not special. An MCP server acts **on behalf of** the calling user
-(token exchange / on-behalf-of flow against the identity provider) and every catalog call
-carries that user's identity. An agent running unattended runs as a service
-principal that is itself a `user` resource in one or more identity groups, so the same
-rules apply and its reach is visible in the graph like anyone else's.
-
-### 3.5 Group membership freshness
+## Group membership freshness
 
 Membership is the one fact where staleness is a security issue. The identity
 provider source therefore runs two cadences: a full reconciliation (hourly) and
@@ -410,27 +291,25 @@ from a group propagates to OpenFGA within the incremental interval; this bound
 is documented as an SLO and exposed on the provider's `source` resource, for
 example `source:entra-id` or `source:okta`.
 
----
+## Ingestion
 
-## 4. Ingestion
-
-### 4.1 Sources
+### Sources
 
 A source is a connector plus a mapping. Expected first-wave sources:
 
 | Source | Kinds produced | Mode |
 |---|---|---|
-| Identity provider (Entra ID, Okta, Zitadel, LDAP) | `user`, `identity_group`, group membership | full + delta (3.5) |
+| Identity provider (Entra ID, Okta, Zitadel, LDAP) | `user`, `identity_group`, group membership | full + delta ([Group membership freshness](#group-membership-freshness)) |
 | GitHub | `repository`, `component` (via a catalog file in the repo), the `system` each component declares, CODEOWNERS → `owner` hint | webhook + nightly full |
 | Kubernetes (per cluster) | `k8s_cluster`, `k8s_namespace`, `k8s_workload`, `k8s_workload --component-->` via a label | watch + periodic resync |
 | AWS (per account) | `aws_account`, one `aws_*` kind per service, `--component-->` via tag | Config/CloudTrail events + daily full |
 | Argo CD / CI | `deployment`, `pipeline_run` | webhook |
-| HR system (Workday, Personio, HiBob, ...) | `team` org units: name, hierarchy, cost centre, manager (2.3.1) | nightly full, webhook where offered |
+| HR system (Workday, Personio, HiBob, ...) | `team` org units: name, hierarchy, cost centre, manager ([Where team and system come from](./explanation.md#where-team-and-system-come-from)) | nightly full, webhook where offered |
 | Datadog / PagerDuty / Opsgenie | `monitor`, `oncall_schedule`, `incident`, and the `team` rota it corroborates | webhook + periodic |
 | Portfolio / product tool (where one exists) | `system` properties and its `owner` link | periodic full |
-| Manual / git | kinds, actions, scorecards, source mappings, ownership overrides — *not* team or system records (2.3.1) | git push (reconciled on merge) |
+| Manual / git | kinds, actions, scorecards, source mappings, ownership overrides — *not* team or system records ([Where team and system come from](./explanation.md#where-team-and-system-come-from)) | git push (reconciled on merge) |
 
-### 4.2 Mapping
+### Source mapping
 
 Each source has a declarative mapping from source payload to resources. The
 mapping is data on the `source` resource, so adding a field or a new kind
@@ -461,7 +340,7 @@ The template language is a sandboxed expression language (JQ or CEL; pick one
 and use it everywhere, including scorecards). The connector is responsible for
 fetching and change detection; the mapping is responsible for shape.
 
-### 4.3 Identity resolution
+### Identity resolution
 
 The hard problem in multi-source ingestion is "is this the same thing". Rules,
 in order:
@@ -476,9 +355,9 @@ in order:
 Cross-source links use the same mechanism in the link direction: the
 Kubernetes label `platform.acme.io/component` and the AWS tag `platform:component`
 are the convention by which infrastructure declares which component it belongs
-to. That label is what makes ownership inheritance (2.4) reach cloud resources.
+to. That label is what makes ownership inheritance ([Ownership resolution](#ownership-resolution)) reach cloud resources.
 
-### 4.4 Merging, provenance, conflicts
+### Merging and provenance
 
 - Each source **owns** the properties it declares in `writes.ownsProperties`
   and may not overwrite others. The `manual` source owns anything not claimed
@@ -487,9 +366,8 @@ to. That label is what makes ownership inheritance (2.4) reach cloud resources.
 - Every applied value records `propertyProvenance[prop] = source`, and every
   source that has seen the resource records `lastSeenAt`.
 - Links are unioned across sources; a link is removed only when no
-  source still asserts it.
 
-### 4.5 Deletion and reconciliation
+### Deletion and reconciliation
 
 - Event-driven sources mark deletions explicitly.
 - Full-sync sources use mark-and-sweep: resources not seen in a completed full
@@ -500,7 +378,7 @@ to. That label is what makes ownership inheritance (2.4) reach cloud resources.
   threshold, default 20% drop) is held for review instead of swept. This is
   the guard against a broken credential deleting half the map.
 
-### 4.6 Change log
+### Change log
 
 Every write (ingestion or manual) appends to an immutable change log:
 `(resourceRef, version, actor{user|source}, timestamp, diff, reason)`. The log
@@ -509,11 +387,9 @@ derived data. It is published to a message bus (Kafka topic `catalog.changes`,
 or the outbox pattern on the catalog DB if Kafka is not already run) so
 consumers never poll.
 
----
+## Query API
 
-## 5. Query and agent access
-
-### 5.1 API surface
+### API surface
 
 - **REST** for CRUD and ingestion: `/kinds`, `/resources`, `/sources`,
   `/actions`, `/changes`.
@@ -526,7 +402,7 @@ consumers never poll.
 Every response carries freshness: `meta.updatedAt` and per-source `lastSeenAt`
 so a caller can decide whether a fact is recent enough.
 
-### 5.2 Agent context
+### Agent context
 
 Agents need a small, relevant, token-bounded slice of the graph, not the whole
 thing. One endpoint does that:
@@ -547,22 +423,11 @@ truncation counts.
 
 The MCP server exposes this as tools: `catalog_search`, `catalog_get`,
 `catalog_context`, `catalog_who_owns`, `catalog_changes_since`,
-`catalog_run_action`. All calls carry the end user's identity (3.4).
+`catalog_run_action`. All calls carry the end user's identity ([Enforcement points](#enforcement-points)).
 
-### 5.3 Why query the catalog instead of live systems
+## Derived data
 
-Live systems are the source of truth, and agents could call them. The catalog
-wins on three axes: one credential model and one permission check instead of
-N; cross-source joins (which pods run the service whose repo had this commit,
-and who is on call) that no single source can answer; and cost — one indexed
-query instead of fan-out API calls with rate limits. The price is staleness,
-which is why freshness is on every fact and `catalog_changes_since` exists.
-
----
-
-## 6. Derived data
-
-### 6.1 Scorecards
+### Scorecards
 
 A scorecard is rules over a resource and its neighbourhood, evaluated on
 change. `appliesTo` names the kind it scores.
@@ -589,9 +454,9 @@ Results are stored as a derived property set on the resource
 (`scorecards.production-readiness = { level: silver, rules: {...}, evaluatedAt }`)
 and in a history table, so trend reports are a query, not a recomputation.
 Evaluation is triggered from the change log, scoped to resources whose inputs
-changed. Scorecard rules use the same expression language as mappings (4.2).
+changed. Scorecard rules use the same expression language as mappings ([Source mapping](#source-mapping)).
 
-### 6.2 Reports
+### Reports
 
 Reports are saved GraphQL queries plus an aggregation, run on a schedule or on
 demand, permission-filtered to the viewer. Typical: ownership coverage per
@@ -599,7 +464,7 @@ kind, unowned resources per AWS account, scorecard distribution per team,
 stale resources per source. No separate reporting store; the catalog's indexes
 and the scorecard history table are the inputs.
 
-### 6.3 Self-service actions
+### Self-service actions
 
 An action is a form bound to a kind and a runner:
 
@@ -629,11 +494,9 @@ inherits ownership from its target, so visibility of runs follows the same
 rules as everything else. Runners are existing workflow engines; the catalog
 never executes anything itself.
 
----
+## Storage
 
-## 7. Storage and components
-
-![Service Catalog Components](./Service%20Catalog%20Components.drawio.png)
+![Service Catalog Components](./diagrams/service-catalog-components.drawio.png)
 
 The PNG has the draw.io source embedded; open it directly in
 [diagrams.net](https://app.diagrams.net) or the VS Code Draw.io extension to edit.
@@ -647,67 +510,8 @@ depths the catalog needs (2–4 hops) are recursive CTEs over the links
 table; a dedicated graph database is not justified until traversal patterns
 prove otherwise.
 
-Why not DataHub as the store, given the earlier platform-abstraction decision
-chose it for Layer 3? Two things in this design strain it:
-
-1. **Dynamic kinds.** DataHub's entity types and relationship names (its
-   own terms) are compiled in (PDL schemas, entity registry) and need a
-   redeploy. Structured properties are dynamic, but new types and new
-   relationships are not.
-   "A kind is a config change" does not fit.
-2. **Permission inference.** DataHub has its own policy engine and ownership
-   aspect, and it would have to be bypassed or kept in sync with the
-   group-derived model in section 3. Running two authorization opinions over
-   the same data is exactly what the design is trying to avoid.
-
-What DataHub provided — aspect model, change-log stream, timeline/audit — is
-reproduced here by the change log table and bus. OpenFGA stays exactly as the
-earlier design specified. If DataHub is already running for data-catalogue
-purposes, it becomes an ingestion *source* (datasets, pipelines) rather than
-the store. The platform-abstraction docs should be updated to reflect this
-once the decision is confirmed (see section 8).
-
 **Sizing assumptions:** up to ~500k resources, ~5M links, ~100k
 users/groups, ~10k changes/minute at ingestion peaks. Postgres handles this
 comfortably on one primary with read replicas for the query path.
 
----
-
-## 8. Decisions and open questions
-
-Decided in this document:
-
-- Kinds are data; a single generic OpenFGA `resource` type keeps the
-  authorization model stable as kinds are added.
-- `team` is distinct from `identity_group`; teams own, groups grant membership.
-- Ownership is inferred by one resolver and materialised; OpenFGA and the
-  query filter both consume the result rather than re-deriving it.
-- Default visibility is owner-only, with per-kind `org` visibility and
-  property-level redaction as the escape hatch.
-- Agents act on behalf of users; no catalog-wide service identity for agents.
-- Postgres-backed catalog service rather than DataHub as the store.
-
-Open, needing a decision from the platform owners:
-
-1. **Which built-in kinds default to `org` visibility** (3.3). The
-   recommendation is `team`, `system`, `component` with sensitive properties
-   redacted. Pure owner-only on everything makes dependency maps and
-   cross-team reports mostly empty for ordinary users.
-2. **Which system of record is the team spine** (2.3.1). HR org units give
-   coverage and stable ids but lag reorganisations and often do not match
-   engineering squads; the on-call tool is the freshest and the most meaningful
-   for ownership but covers only teams carrying production load. Recommendation:
-   HR system as the spine, joined to identity groups by an org-unit attribute on
-   the group, with drift reports against the on-call tool. This needs confirming
-   against the systems the organisation actually runs, and against whether its
-   groups carry an org-unit attribute at all — if they do not, the join table
-   lives in git as a measured, temporary residue rather than as the design.
-3. **Expression language** for mappings and scorecards: CEL or JQ. CEL is
-   recommended for its type checking and sandboxing; JQ is more widely
-   known.
-4. **Message bus.** Kafka if already operated; otherwise the Postgres outbox
-   pattern is sufficient at the stated scale.
-5. **Confirm the DataHub change** and update
-   [`../platform-abstraction/explanation.md`](../platform-abstraction/explanation.md)
-   and `reference.md` accordingly. Until then the two documents disagree on
-   the Layer 3 store, and this one is the newer position.
+Why Postgres and not DataHub: [explanation.md](./explanation.md#why-postgres-and-not-datahub).

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Tiny CLI entrypoint standing in for Layer 1 (Developer Interface).
 
-Run `python3 platform.py apply ...` (and see README.md for the full walkthrough).
+Run `python3 platform.py apply ...` (see README.md, or the tutorial in docs/platform-abstraction/tutorial.md).
 """
 import argparse
 import sys

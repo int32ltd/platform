@@ -1,0 +1,7 @@
+# draw.io backup and temp files
+.\$*.bkp
+.\$*.dtmp
+*.drawio.bkp
+*.drawio.dtmp
+
+__pycache__/
