@@ -5,18 +5,24 @@ many sources, queried by agents, reports, scorecards and self-service actions,
 with access derived from the graph itself (resource → owning team → identity group →
 member).
 
-- [design.md](./design.md) — data model, permission model, ingestion, query
-  surface, derived data, storage, open decisions.
-- [Service Catalog Components.drawio.png](./Service%20Catalog%20Components.drawio.png)
-  — component diagram, exported from draw.io with the source embedded (open
-  the PNG in diagrams.net to edit).
-
-- [ownership-demo.html](./ownership-demo.html) — an interactive model of the
-  design: a worked graph of people, identity groups, teams, systems, components
-  and real infrastructure (a GitHub repo, a Kubernetes workload, an SQS queue,
-  an RDS instance), with the ownership resolver, the visibility rules and the
-  OpenFGA tuples computed live. Change who owns what and watch access follow.
-  Open the file in a browser — no build, no dependencies, no network calls.
-
 This is the detailed design of Layer 3 in
 [`../platform-abstraction/`](../platform-abstraction/README.md).
+
+| Quadrant | Question it answers | Document |
+|---|---|---|
+| Reference | "What exactly is the schema / auth model / API?" | [reference.md](./reference.md) |
+| Explanation | "Why is it built this way?" | [explanation.md](./explanation.md) |
+
+To see the model working, open the
+[ownership demo](../../demos/service-catalog-ownership/): a worked graph of
+people, identity groups, teams, systems, components and real infrastructure (a
+GitHub repo, a Kubernetes workload, an SQS queue, an RDS instance), with the
+ownership resolver, the visibility rules and the OpenFGA tuples computed live.
+Open `index.html` in a browser. No build, no dependencies, no network calls.
+
+## Diagram
+
+![Service Catalog Components](./diagrams/service-catalog-components.drawio.png)
+
+Exported from draw.io with the source embedded. Open the PNG in
+[diagrams.net](https://app.diagrams.net) to edit.

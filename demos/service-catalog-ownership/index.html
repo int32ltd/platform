@@ -382,7 +382,7 @@
   <header class="top">
     <div class="brand">
       <h1>Catalog Ownership Explorer</h1>
-      <div class="sub">A working model of <a href="./design.md">docs/service-catalog/design.md</a> — kinds, resources, links, inferred ownership, derived access.</div>
+      <div class="sub">A working model of the <a href="../../docs/service-catalog/reference.md">service catalog design</a> — kinds, resources, links, inferred ownership, derived access.</div>
     </div>
     <div class="viewer-bar">
       <span class="eyebrow">Acting as</span>
@@ -433,13 +433,13 @@
 
 <script>
 /* ===========================================================================
-   Kinds — schema as data (design §2.1). Links are first class; at most one
+   Kinds — schema as data (reference: Kinds). Links are first class; at most one
    link per kind carries ownership: grants.
    =========================================================================== */
 const KINDS = {
   // sourceOwned: the catalog has no write path for this kind. Every record,
   // property and link is mirrored from the identity provider (entra-id) and
-  // the only way to change one is to change it there (design §4.4).
+  // the only way to change one is to change it there (reference: Merging and provenance).
   user:           { title: "User",         visibility: "org",   sourceOwned: "entra-id", links: {} },
   identity_group: { title: "Identity group", visibility: "org", sourceOwned: "entra-id", links: { members: { target: ["user", "identity_group"], many: true, role: "members" } } },
   team:           { title: "Team",         visibility: "org",   links: { backedBy: { target: "identity_group", many: true, role: "backedBy" } } },
@@ -459,7 +459,7 @@ const PROVIDER_COLOR = { aws: "var(--aws)", k8s: "var(--k8s)", github: "var(--gi
 
 /* ===========================================================================
    Seed resources. `src` is the ingestion source that owns the resource's
-   properties (design §4.4); `seen` is lastSeenAt on that source.
+   properties (reference: Merging and provenance); `seen` is lastSeenAt on that source.
    =========================================================================== */
 function seed() {
   const R = {};
@@ -479,7 +479,7 @@ function seed() {
   add("identity_group", "payments-contractors", "payments-contractors", { provider: "entra-id", objectId: "4a55…1fe" }, { members: ["user:dave"] }, "entra-id", "09:58");
   add("identity_group", "platform-engineering", "platform-engineering", { provider: "entra-id", objectId: "11ab…9c2" }, { members: ["user:frank"] }, "entra-id", "09:58");
 
-  // A team is not one source's record (design §2.3.1): the HR system owns the
+  // A team is not one source's record (explanation: Where team and system come from): the HR system owns the
   // org unit, the identity provider owns membership, the on-call tool owns the
   // rota. Git owns none of it.
   const team = (id, title, ou, cc, mgr, slack, rota, groups) => {
@@ -501,7 +501,7 @@ function seed() {
     const x = R["system:" + id];
     x.sources = [{ source: "github", seen: "10:02" }, { source: "portfolio", seen: "07:30" }];
     x.prov = { domain: "portfolio", productOwner: "portfolio", owner: "portfolio" };
-    x.derived = "materialised from the component.system declarations in each repo's catalog file (§2.5 dangling-edge resolution)";
+    x.derived = "materialised from the component.system declarations in each repo's catalog file (dangling-edge resolution, reference: Link integrity)";
   };
   system("commerce", "Commerce", "revenue", "Nadia Berg", "team:payments");
   system("discovery", "Discovery", "product", "Rafael Tun", "team:search");
@@ -573,7 +573,7 @@ const kindOf = (ref) => KINDS[S.res[ref] ? S.res[ref].kind : ref.split(":")[0]];
 const visOf = (kind) => S.vis[kind] || KINDS[kind].visibility;
 const uniq = (a) => [...new Set(a)];
 
-/* --- ownership inference (design §2.4) ----------------------------------- */
+/* --- ownership inference (reference: Ownership resolution) ----------------------------------- */
 function owners(ref, seen, depth) {
   seen = seen || new Set(); depth = depth || 0;
   if (depth > 6 || seen.has(ref)) return [];          // cycle detection + depth limit
@@ -633,7 +633,7 @@ const teamUsers = (t) => uniq(vals(S.res[t] || { links: {} }, "backedBy").flatMa
 const isPlatformAdmin = (u) => groupUsers(PLATFORM_ADMIN_GROUP).includes(u);
 const userTeams = (u) => Object.keys(S.res).filter((r) => r.startsWith("team:") && teamUsers(r).includes(u));
 
-/* --- derived access (design §3) ------------------------------------------ */
+/* --- derived access (reference: Authorization model) ------------------------------------------ */
 function ownerMember(u, ref) { return owners(ref).some((t) => teamUsers(t).includes(u)); }
 function access(u, ref) {
   const o = owners(ref), om = ownerMember(u, ref), admin = isPlatformAdmin(u), org = visOf(S.res[ref].kind) === "org";
@@ -650,7 +650,7 @@ function access(u, ref) {
 }
 const canSee = (ref) => access(S.viewer, ref).view;
 
-/* --- OpenFGA tuples (design §3.2) ---------------------------------------- */
+/* --- OpenFGA tuples (reference: Authorization model) ---------------------------------------- */
 function tuples() {
   const t = [];
   for (const ref in S.res) {
@@ -672,7 +672,7 @@ function tuples() {
   return t;
 }
 
-/* --- change log (design §4.6) -------------------------------------------- */
+/* --- change log (reference: Change log) -------------------------------------------- */
 function write(actor, ref, diff, reason) {
   clock = new Date(clock.getTime() + 37000 + Math.floor(Math.random() * 90) * 1000);
   S.log.unshift({ ts: clock.toISOString().slice(11, 19) + "Z", actor, ref, diff, reason });
@@ -870,7 +870,7 @@ function yamlView(ref) {
   }
   const own = owners(ref);
   if (r.kind !== "user" && r.kind !== "identity_group" && r.kind !== "team")
-    row(2, "effectiveOwners", own.length ? "[" + own.map(esc).join(", ") + "]" : "[]  <span class=\"ym\"># unowned — first-class state (§2.4)</span>", "yr");
+    row(2, "effectiveOwners", own.length ? "[" + own.map(esc).join(", ") + "]" : "[]  <span class=\"ym\"># unowned — first-class state (see Ownership resolution)</span>", "yr");
   return `<pre class="yaml">${L.join("\n")}</pre>`;
 }
 
@@ -886,7 +886,7 @@ function ownershipView(ref) {
   else if (inheritLinks.some((n) => vals(r, n).length))
     out.push(`<b>Step 1 missed</b> — ${grantsLink ? `<code>${r.kind}.${grantsLink}</code> is empty` : `kind <code>${r.kind}</code> has no <code>grants</code> link`}. <b>Step 2:</b> follow ${inheritLinks.map((n) => `<code>${n}</code>`).join(", ")} (<code>ownership: inherits</code>) and take the owners of the targets, recursively.`);
   else if (r.kind === "team" || r.kind === "identity_group" || r.kind === "user")
-    out.push(`This is an identity-side resource. It is not owned; it is what ownership resolves <em>to</em>. ${k.sourceOwned ? `Its existence, properties and membership come from <code>${k.sourceOwned}</code>; nobody defines users or groups in the platform.` : "The team record comes from the HR system (§2.3.1) and the people behind it arrive through its backing groups from the IdP — git defines neither."}`);
+    out.push(`This is an identity-side resource. It is not owned; it is what ownership resolves <em>to</em>. ${k.sourceOwned ? `Its existence, properties and membership come from <code>${k.sourceOwned}</code>; nobody defines users or groups in the platform.` : "The team record comes from the HR system (see Where team and system come from) and the people behind it arrive through its backing groups from the IdP — git defines neither."}`);
   else
     out.push(`<b>Nothing resolves.</b> No <code>grants</code> link and no <code>inherits</code> link is set, so the resource is <b>unowned</b> — a first-class state, visible to platform admins only and reportable.`);
   out.push(`</div></div>`);
@@ -920,7 +920,7 @@ function accessView(ref) {
   const out = [];
   out.push(`<div class="block"><h3>You, on this resource</h3><div class="note">
     <b>${S.viewer}</b> → <b style="color:${me.view ? "var(--owned)" : "var(--deny)"}">can_view = ${me.view}</b><br><code>${esc(me.why)}</code>
-    ${me.view && me.redacted && (KINDS[r.kind].sensitive || []).length ? `<br><br>Properties marked <code>sensitivity: owner</code> (${KINDS[r.kind].sensitive.join(", ")}) are redacted for you — §3.3.` : ""}
+    ${me.view && me.redacted && (KINDS[r.kind].sensitive || []).length ? `<br><br>Properties marked <code>sensitivity: owner</code> (${KINDS[r.kind].sensitive.join(", ")}) are redacted for you — see Visibility.` : ""}
   </div></div>`);
   out.push(`<div class="block"><h3>Decision per user</h3>
     <table class="grid"><tr><th>User</th><th>view</th><th>edit</th><th>run&nbsp;action</th><th>transfer</th></tr>`);
@@ -980,7 +980,7 @@ function actionsView(ref) {
     </div>`);
   }
   if (k.sourceOwned) {
-    out.push(`<div class="idp-banner"><b>Not defined in the platform.</b> <code>${r.kind}</code> records are mirrored from <code>${k.sourceOwned}</code> on an hourly full reconciliation plus a delta feed every few minutes (§3.5). The catalog API has no write path for them: as <b>${S.viewer}</b>${isPlatformAdmin(S.viewer) ? ", a platform admin," : ""} a write answers
+    out.push(`<div class="idp-banner"><b>Not defined in the platform.</b> <code>${r.kind}</code> records are mirrored from <code>${k.sourceOwned}</code> on an hourly full reconciliation plus a delta feed every few minutes (see Group membership freshness). The catalog API has no write path for them: as <b>${S.viewer}</b>${isPlatformAdmin(S.viewer) ? ", a platform admin," : ""} a write answers
       <div class="deny-note" style="margin-top:4px">PATCH /resources/${esc(ref.replace(":", "/"))} → 405 Method Not Allowed — kind ${r.kind} is source-owned by ${k.sourceOwned}</div>
       The controls below do not edit the catalog. They simulate a change made <em>in the identity provider</em> arriving on the feed, which is why the actor on every resulting log entry is <code>source:${k.sourceOwned}</code>, never a person.</div>`);
   }
@@ -1088,7 +1088,7 @@ function wireActions() {
     const u = b.dataset.mem, cur = vals(r, "members"), has = cur.includes(u);
     applyChange(() => { r.links.members = has ? cur.filter((x) => x !== u) : cur.concat(u); },
       "source:entra-id", sel, `links.members: ${has ? "−" : "+"} ${u}`,
-      has ? `Removal propagates to OpenFGA within the delta interval — the one fact where staleness is a security issue (§3.5).` : `New member; access follows immediately on the next tuple sync.`);
+      has ? `Removal propagates to OpenFGA within the delta interval — the one fact where staleness is a security issue (see Group membership freshness).` : `New member; access follows immediately on the next tuple sync.`);
   }));
 }
 
@@ -1143,7 +1143,7 @@ const TOUR = [
     go: () => { sel = "aws_sqs_queue:prod-4711/legacy-orders-dlq"; tab = "actions"; } },
   { t: "Membership is the last mile", b: "Ownership points at a <b>team</b>, never at a group, so IT can reorganise the group tree in Entra ID without ownership churn. Remove Bob from <code>eng-payments</code> <em>in the IdP</em> and watch his access go — the one fact where staleness is a security issue. The catalog only ever receives it.",
     go: () => { sel = "identity_group:eng-payments"; tab = "actions"; } },
-  { t: "The visibility trade-off", b: "Flip <code>component</code> to <code>owner</code> in the rail. Strictly correct, and now Carol cannot see that checkout-service exists at all — no dependency map, no \"who do I call\". That is the open question in §8.1.",
+  { t: "The visibility trade-off", b: "Flip <code>component</code> to <code>owner</code> in the rail. Strictly correct, and now Carol cannot see that checkout-service exists at all — no dependency map, no \"who do I call\". That is open question 1 in the explanation doc.",
     go: () => { S.viewer = "user:carol"; sel = "component:checkout-service"; tab = "access"; } },
 ];
 function renderTour() {

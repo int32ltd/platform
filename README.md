@@ -14,17 +14,20 @@ access in every tool by hand.
 
 | Path | What it is |
 |---|---|
-| [`docs/platform-abstraction/`](./docs/platform-abstraction/) | The design, written as a [Diátaxis](https://diataxis.fr) doc set: tutorial, how-to guides, reference, and explanation. Start at its [README](./docs/platform-abstraction/README.md). |
-| [`docs/service-catalog/`](./docs/service-catalog/) | Detailed design of the service catalog: kinds, resources, links, identity-group-derived permissions, ingestion, agent query surface. Start at its [README](./docs/service-catalog/README.md). |
-| [`demo/`](./demo/) | A tiny Python simulation of the architecture. One capability (observability) modeled end to end with two fake providers. See the [demo README](./demo/README.md). |
+| [`docs/`](./docs/) | The design, one folder per topic, each written as a [Diátaxis](https://diataxis.fr) doc set. Start at the [docs index](./docs/README.md). |
+| [`docs/platform-abstraction/`](./docs/platform-abstraction/) | The overall design: tutorial, how-to guides, reference, explanation. |
+| [`docs/service-catalog/`](./docs/service-catalog/) | The detailed design of the service catalog: kinds, resources, links, identity-group-derived permissions, ingestion, agent query surface. |
+| [`demos/`](./demos/) | Runnable models of the designs, one folder per demo. See the [demos index](./demos/README.md). |
 
 ## Quick start
 
-The demo needs Python 3 and one dependency:
+The fastest way in is the [tutorial](./docs/platform-abstraction/tutorial.md),
+which runs the platform-abstraction demo. It needs Python 3 and one
+dependency:
 
 ```
 pip install pyyaml
-cd demo
+cd demos/platform-abstraction
 python3 platform.py apply requests/checkout-latency.yaml \
   --component checkout-service --team team-payments \
   --tenant team-growth --environment production
@@ -32,6 +35,10 @@ python3 platform.py apply requests/checkout-latency.yaml \
 
 It prints each layer the request passes through: contract validation,
 ownership and policy check, provider binding, and the simulated vendor calls.
+
+For the service catalog, open
+[`demos/service-catalog-ownership/index.html`](./demos/service-catalog-ownership/index.html)
+in a browser.
 
 ## Contributing
 

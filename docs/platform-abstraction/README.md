@@ -15,15 +15,15 @@ the VS Code Draw.io extension — no separate `.drawio` file is needed.
 
 ### Capability Abstraction Layers
 
-![Capability Abstraction Layers](./Capability%20Abstraction%20Layers.drawio.png)
+![Capability Abstraction Layers](./diagrams/capability-abstraction-layers.drawio.png)
 
 ### C4 Container View (technology-agnostic)
 
-![C4 Container View (technology-agnostic)](./C4%20Container%20View%20%28technology-agnostic%29.drawio.png)
+![C4 Container View (technology-agnostic)](./diagrams/c4-container-view.drawio.png)
 
 ### System layers (the full capability map)
 
-![System layers](./System%20layers.drawio.png)
+![System layers](./diagrams/system-layers.drawio.png)
 
 This doc set follows the [Diátaxis](https://diataxis.fr) framework — four
 documents, each answering a different kind of question:
@@ -34,6 +34,9 @@ documents, each answering a different kind of question:
 | How-to guides | "How do I do X?" | [how-to-guides.md](./how-to-guides.md) |
 | Reference | "What exactly is the schema / API / mapping?" | [reference.md](./reference.md) |
 | Explanation | "Why is it built this way?" | [explanation.md](./explanation.md) |
+
+The tutorial runs against a small Python simulation of the design in
+[`demos/platform-abstraction/`](../../demos/platform-abstraction/).
 
 ## The shape of it, in one paragraph
 
