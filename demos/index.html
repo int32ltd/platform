@@ -1,0 +1,293 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Platform Demos</title>
+<meta name="description" content="Interactive, in-browser models of a vendor-neutral internal developer platform design.">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root {
+    color-scheme: light;
+    --ground: #eef1f5;
+    --surface: #ffffff;
+    --surface-2: #f6f8fa;
+    --surface-3: #e9edf2;
+    --line: #d3dae2;
+    --line-soft: #e3e8ee;
+    --ink: #121820;
+    --ink-2: #4a5663;
+    --ink-3: #78838f;
+    --accent: #0d7a84;
+    --accent-ink: #085a62;
+    --accent-soft: #d6eced;
+    --owned: #1d7340;
+    --deny: #ab382c;
+    --vendor: #6b4ea8;
+    --idp: #6b4ea8;
+    --aws: #8a5a0b;
+    --k8s: #2b5bb5;
+    --shadow: 0 1px 2px rgba(18, 24, 32, .06), 0 8px 24px -16px rgba(18, 24, 32, .25);
+    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans: "IBM Plex Sans", system-ui, -apple-system, Segoe UI, sans-serif;
+    --cond: "IBM Plex Sans Condensed", "IBM Plex Sans", system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --ground: #0e1319;
+      --surface: #161c24;
+      --surface-2: #1b222b;
+      --surface-3: #232b35;
+      --line: #2e3844;
+      --line-soft: #242c36;
+      --ink: #e7ecf2;
+      --ink-2: #a7b2bf;
+      --ink-3: #7c8794;
+      --accent: #3fb3bd;
+      --accent-ink: #7fd3da;
+      --accent-soft: #15353a;
+      --owned: #5cbd83;
+      --deny: #e8897c;
+      --vendor: #b49ae8;
+      --idp: #b49ae8;
+      --aws: #d9a95f;
+      --k8s: #7aa5ef;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 10px 30px -18px rgba(0, 0, 0, .8);
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --ground: #0e1319;
+    --surface: #161c24;
+    --surface-2: #1b222b;
+    --surface-3: #232b35;
+    --line: #2e3844;
+    --line-soft: #242c36;
+    --ink: #e7ecf2;
+    --ink-2: #a7b2bf;
+    --ink-3: #7c8794;
+    --accent: #3fb3bd;
+    --accent-ink: #7fd3da;
+    --accent-soft: #15353a;
+    --owned: #5cbd83;
+    --deny: #e8897c;
+    --vendor: #b49ae8;
+    --idp: #b49ae8;
+    --aws: #d9a95f;
+    --k8s: #7aa5ef;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 10px 30px -18px rgba(0, 0, 0, .8);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent-ink); }
+  code { font-family: var(--mono); font-size: .9em; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  header.top { background: var(--surface); border-bottom: 1px solid var(--line); }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 24px; }
+  header .wrap { padding-top: 36px; padding-bottom: 30px; }
+  .eyebrow { font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: .13em; text-transform: uppercase; color: var(--ink-3); }
+  h1 { font-family: var(--cond); font-size: 32px; font-weight: 700; letter-spacing: -.01em; margin: 6px 0 10px; line-height: 1.15; text-wrap: balance; }
+  .lede { max-width: 62ch; color: var(--ink-2); font-size: 15px; margin: 0; text-wrap: pretty; }
+  .meta { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 16px; font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
+  .meta span::before { content: "· "; color: var(--accent); }
+
+  main .wrap { padding-top: 28px; padding-bottom: 48px; }
+  .demos { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr)); gap: 20px; }
+
+  .demo {
+    display: flex; flex-direction: column;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .demo .art { display: block; background: var(--surface-2); border-bottom: 1px solid var(--line-soft); }
+  .demo .art svg { display: block; width: 100%; height: auto; }
+  .demo .bd { padding: 18px 20px 20px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
+  .demo h2 { font-family: var(--cond); font-size: 21px; font-weight: 700; margin: 0; letter-spacing: -.005em; }
+  .demo h2 a { color: var(--ink); text-decoration: none; }
+  .demo h2 a:hover { color: var(--accent-ink); }
+  .demo p { margin: 0; color: var(--ink-2); text-wrap: pretty; }
+  .demo ul { margin: 0; padding-left: 18px; color: var(--ink-2); font-size: 13px; }
+  .demo li { margin: 2px 0; }
+  .demo li::marker { color: var(--accent); }
+  .tags { display: flex; flex-wrap: wrap; gap: 5px; }
+  .tag { font-family: var(--mono); font-size: 10.5px; padding: 1px 6px; border-radius: 2px; background: var(--surface-3); color: var(--ink-2); }
+  .actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: auto; padding-top: 6px; }
+  .btn {
+    display: inline-block; padding: 8px 14px; border-radius: 3px;
+    background: var(--accent); color: #fff; font-weight: 500; font-size: 13px; text-decoration: none;
+    border: 1px solid var(--accent);
+  }
+  :root[data-theme="dark"] .btn { color: #06181a; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .btn { color: #06181a; } }
+  .btn:hover { background: var(--accent-ink); border-color: var(--accent-ink); }
+  .link { font-size: 12.5px; color: var(--ink-2); text-decoration: none; border-bottom: 1px solid var(--line); }
+  .link:hover { color: var(--accent-ink); border-color: var(--accent); }
+
+  /* thumbnail art */
+  .art .lyr { fill: var(--surface); stroke: var(--line); }
+  .art .lyr.ok { stroke: var(--owned); }
+  .art .lyr.v { stroke: var(--vendor); }
+  .art .num { font-family: var(--cond); font-size: 13px; font-weight: 700; fill: var(--ink-2); }
+  .art .lbl { font-family: var(--mono); font-size: 9.5px; fill: var(--ink-2); }
+  .art .flow { stroke: var(--accent); stroke-width: 1.6; stroke-dasharray: 4 3; fill: none; animation: flow 1.2s linear infinite; }
+  .art .div { stroke: var(--vendor); stroke-dasharray: 3 3; opacity: .7; }
+  .art .divl { font-family: var(--mono); font-size: 8px; letter-spacing: .1em; fill: var(--vendor); }
+  .art .nd { fill: var(--surface); stroke: var(--line); }
+  .art .nd.team { stroke: var(--accent); stroke-width: 1.5; }
+  .art .e { stroke: var(--ink-3); opacity: .55; fill: none; }
+  .art .e.own { stroke: var(--accent); opacity: .9; stroke-width: 1.5; }
+  .art .e.inh { stroke: var(--accent); opacity: .8; stroke-dasharray: 4 3; }
+  .art .e.idp { stroke: var(--idp); opacity: .8; }
+  .art .bar { stroke: none; }
+  @keyframes flow { to { stroke-dashoffset: -14; } }
+  @media (prefers-reduced-motion: reduce) { .art .flow { animation: none; } }
+
+  .more { margin-top: 32px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 20px; }
+  .more section { border-top: 1px solid var(--line); padding-top: 14px; }
+  .more h3 { font-family: var(--cond); font-size: 15px; font-weight: 700; margin: 0 0 6px; }
+  .more p { margin: 0; color: var(--ink-2); font-size: 13px; }
+
+  footer { border-top: 1px solid var(--line); }
+  footer .wrap { padding-top: 16px; padding-bottom: 24px; font-size: 12px; color: var(--ink-3); display: flex; gap: 16px; flex-wrap: wrap; }
+  footer a { color: var(--ink-2); }
+
+  @media (max-width: 600px) {
+    .wrap { padding: 0 16px; }
+    header .wrap { padding-top: 24px; padding-bottom: 22px; }
+    h1 { font-size: 26px; }
+    .demo .bd { padding: 16px; }
+  }
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <div class="eyebrow">int32ltd / platform</div>
+    <h1>Platform demos</h1>
+    <p class="lede">Working models of a vendor-neutral internal developer platform. Change who owns what, swap the vendor, edit the contract, and watch every decision downstream recalculate.</p>
+    <div class="meta"><span>runs in your browser</span><span>no install</span><span>no network calls</span></div>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+    <div class="demos">
+
+      <article class="demo">
+        <a class="art" href="platform-abstraction/index.html" tabindex="-1" aria-hidden="true">
+          <svg viewBox="0 0 440 170" role="presentation">
+            <g transform="translate(24,14)">
+              <path class="flow" d="M14 12 V140"/>
+              <rect class="lyr ok" x="0" y="0" width="200" height="19" rx="2"/><text class="num" x="9" y="14">1</text><text class="lbl" x="26" y="13">developer request</text>
+              <rect class="lyr ok" x="0" y="23" width="200" height="19" rx="2"/><text class="num" x="9" y="37">2</text><text class="lbl" x="26" y="36">capability contract</text>
+              <rect class="lyr ok" x="0" y="46" width="200" height="19" rx="2"/><text class="num" x="9" y="60">3</text><text class="lbl" x="26" y="59">ownership graph</text>
+              <line class="div" x1="0" y1="71" x2="392" y2="71"/><text class="divl" x="210" y="68">VENDOR NAMED BELOW</text>
+              <rect class="lyr v" x="0" y="77" width="200" height="19" rx="2"/><text class="num" x="9" y="91">4</text><text class="lbl" x="26" y="90">binding policy</text>
+              <rect class="lyr v" x="0" y="100" width="200" height="19" rx="2"/><text class="num" x="9" y="114">5</text><text class="lbl" x="26" y="113">provider adapter</text>
+              <rect class="lyr v" x="0" y="123" width="200" height="19" rx="2"/><text class="num" x="9" y="137">6</text><text class="lbl" x="26" y="136">vendor (simulated)</text>
+              <rect class="lyr v" x="226" y="77" width="76" height="19" rx="2"/><text class="lbl" x="236" y="90">datadog</text>
+              <rect class="lyr" x="310" y="77" width="82" height="19" rx="2" style="stroke-dasharray:3 2"/><text class="lbl" x="318" y="90">dynatrace</text>
+              <path class="e" d="M200 86.5 H226"/>
+            </g>
+          </svg>
+        </a>
+        <div class="bd">
+          <div class="eyebrow">Demo 1 · design overview</div>
+          <h2><a href="platform-abstraction/index.html">Platform Abstraction Flow</a></h2>
+          <p>One vendor-neutral observability request passes through all six layers: contract, ownership graph, binding policy, adapter, and a simulated vendor call.</p>
+          <ul>
+            <li>Add a Datadog-only field and see the contract reject it</li>
+            <li>Change one binding rule and see the vendor switch</li>
+            <li>Move ownership and see access follow</li>
+          </ul>
+          <div class="tags"><span class="tag">contract</span><span class="tag">binding policy</span><span class="tag">adapters</span><span class="tag">8-step tour</span></div>
+          <div class="actions">
+            <a class="btn" href="platform-abstraction/index.html">Open demo</a>
+            <a class="link" href="https://github.com/int32ltd/platform/blob/main/docs/platform-abstraction/tutorial.md">Tutorial</a>
+            <a class="link" href="https://github.com/int32ltd/platform/blob/main/docs/platform-abstraction/reference.md">Reference</a>
+            <a class="link" href="https://github.com/int32ltd/platform/tree/main/demos/platform-abstraction">Python CLI</a>
+          </div>
+        </div>
+      </article>
+
+      <article class="demo">
+        <a class="art" href="service-catalog-ownership/index.html" tabindex="-1" aria-hidden="true">
+          <svg viewBox="0 0 440 170" role="presentation">
+            <g transform="translate(20,18)">
+              <path class="e idp" d="M58 22 C80 22 80 40 102 40"/>
+              <path class="e idp" d="M58 62 C80 62 80 40 102 40"/>
+              <path class="e idp" d="M58 102 C80 102 80 110 102 110"/>
+              <path class="e" d="M158 40 H182"/>
+              <path class="e own" d="M262 30 C230 30 220 40 158 40"/>
+              <path class="e own" d="M262 70 C230 70 220 40 158 40"/>
+              <path class="e own" d="M262 120 C230 120 220 110 158 110"/>
+              <path class="e inh" d="M340 18 H322"/>
+              <path class="e inh" d="M340 50 C330 50 330 30 322 30"/>
+              <path class="e inh" d="M340 82 C330 82 330 70 322 70"/>
+              <path class="e inh" d="M340 120 H322"/>
+              <rect class="nd" x="0" y="12" width="58" height="20" rx="2"/><text class="lbl" x="8" y="26">alice</text>
+              <rect class="nd" x="0" y="52" width="58" height="20" rx="2"/><text class="lbl" x="8" y="66">bob</text>
+              <rect class="nd" x="0" y="92" width="58" height="20" rx="2"/><text class="lbl" x="8" y="106">carol</text>
+              <rect class="nd team" x="102" y="30" width="56" height="20" rx="2"/><text class="lbl" x="109" y="44">payments</text>
+              <rect class="nd team" x="102" y="100" width="56" height="20" rx="2"/><text class="lbl" x="111" y="114">search</text>
+              <rect class="nd" x="262" y="20" width="60" height="20" rx="2"/><text class="lbl" x="268" y="34">checkout</text>
+              <rect class="nd" x="262" y="60" width="60" height="20" rx="2"/><text class="lbl" x="268" y="74">ledger</text>
+              <rect class="nd" x="262" y="110" width="60" height="20" rx="2"/><text class="lbl" x="268" y="124">indexer</text>
+              <rect class="nd" x="340" y="8" width="58" height="20" rx="2"/><rect class="bar" x="340" y="8" width="3" height="20" fill="var(--aws)"/><text class="lbl" x="348" y="22">sqs</text>
+              <rect class="nd" x="340" y="40" width="58" height="20" rx="2"/><rect class="bar" x="340" y="40" width="3" height="20" fill="var(--aws)"/><text class="lbl" x="348" y="54">rds</text>
+              <rect class="nd" x="340" y="72" width="58" height="20" rx="2"/><rect class="bar" x="340" y="72" width="3" height="20" fill="var(--k8s)"/><text class="lbl" x="348" y="86">k8s</text>
+              <rect class="nd" x="340" y="110" width="58" height="20" rx="2"/><rect class="bar" x="340" y="110" width="3" height="20" fill="var(--k8s)"/><text class="lbl" x="348" y="124">k8s</text>
+            </g>
+          </svg>
+        </a>
+        <div class="bd">
+          <div class="eyebrow">Demo 2 · service catalog</div>
+          <h2><a href="service-catalog-ownership/index.html">Catalog Ownership Explorer</a></h2>
+          <p>A graph of people, identity groups, teams, systems, components and infrastructure. Ownership is worked out from links, and access, visibility and OpenFGA tuples are computed live.</p>
+          <ul>
+            <li>Switch viewers and see what each person can see</li>
+            <li>Transfer a component and its infrastructure follows</li>
+            <li>Offboard someone in the IdP and see their access go</li>
+          </ul>
+          <div class="tags"><span class="tag">ownership</span><span class="tag">identity groups</span><span class="tag">OpenFGA</span><span class="tag">8-step tour</span></div>
+          <div class="actions">
+            <a class="btn" href="service-catalog-ownership/index.html">Open demo</a>
+            <a class="link" href="https://github.com/int32ltd/platform/blob/main/docs/service-catalog/reference.md">Reference</a>
+            <a class="link" href="https://github.com/int32ltd/platform/blob/main/docs/service-catalog/explanation.md">Explanation</a>
+          </div>
+        </div>
+      </article>
+
+    </div>
+
+    <div class="more">
+      <section>
+        <h3>Where to start</h3>
+        <p>Start with the <a href="platform-abstraction/index.html">flow demo</a> and its guided tour. It covers the whole design in eight steps. The catalog explorer goes deeper on one layer: who owns what and why.</p>
+      </section>
+      <section>
+        <h3>What these are not</h3>
+        <p>Nothing here calls a real vendor or touches real infrastructure. Each demo models the data flow and boundaries of the design, not its runtime. The <a href="https://github.com/int32ltd/platform/blob/main/docs/platform-abstraction/explanation.md">explanation</a> covers what the real systems add.</p>
+      </section>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <a href="https://github.com/int32ltd/platform">Source on GitHub</a>
+    <a href="https://github.com/int32ltd/platform/blob/main/docs/README.md">All docs</a>
+  </div>
+</footer>
