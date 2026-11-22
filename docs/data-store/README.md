@@ -18,6 +18,13 @@ The runnable version is [`demos/data-store/`](../../demos/data-store/): the full
 schema plus the ownership demo's worked graph, in a throwaway Postgres 18 pod
 in its own `catalog-data-store` namespace. `./demo.sh up && ./demo.sh walkthrough` runs the whole tour.
 
+For a visual guide, open the
+[schema page](../../demos/data-store/index.html) in a browser: every table,
+view and function, what writes each one, and the logic behind it. It must be
+updated with every schema change (see
+[CONTRIBUTING](../../CONTRIBUTING.md#keep-the-data-store-schema-page-current)),
+and `./demo.sh test` fails while it is out of date.
+
 ## At a glance
 
 ```

@@ -1,0 +1,1074 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="color-scheme" content="light dark">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Catalog Data Store Schema</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root {
+    color-scheme: light;
+    --ground: #eef1f5;
+    --surface: #ffffff;
+    --surface-2: #f6f8fa;
+    --surface-3: #e9edf2;
+    --line: #d3dae2;
+    --line-soft: #e3e8ee;
+    --ink: #121820;
+    --ink-2: #4a5663;
+    --ink-3: #78838f;
+    --accent: #0d7a84;
+    --accent-ink: #085a62;
+    --accent-soft: #d6eced;
+    --owned: #1d7340;
+    --warn: #9c5a07;
+    --warn-soft: #fbeedb;
+    --s-catalog: #2b5bb5;
+    --s-authz: #6b4ea8;
+    --s-api: #1d7340;
+    --shadow: 0 1px 2px rgba(18, 24, 32, .06), 0 8px 24px -16px rgba(18, 24, 32, .25);
+    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans: "IBM Plex Sans", system-ui, -apple-system, Segoe UI, sans-serif;
+    --cond: "IBM Plex Sans Condensed", "IBM Plex Sans", system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --ground: #0e1319;
+      --surface: #161c24;
+      --surface-2: #1b222b;
+      --surface-3: #232b35;
+      --line: #2e3844;
+      --line-soft: #242c36;
+      --ink: #e7ecf2;
+      --ink-2: #a7b2bf;
+      --ink-3: #7c8794;
+      --accent: #3fb3bd;
+      --accent-ink: #7fd3da;
+      --accent-soft: #15353a;
+      --owned: #5cbd83;
+      --warn: #e0a95c;
+      --warn-soft: #3a2d15;
+      --s-catalog: #7aa5ef;
+      --s-authz: #b49ae8;
+      --s-api: #5cbd83;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 10px 30px -18px rgba(0, 0, 0, .8);
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --ground: #0e1319;
+    --surface: #161c24;
+    --surface-2: #1b222b;
+    --surface-3: #232b35;
+    --line: #2e3844;
+    --line-soft: #242c36;
+    --ink: #e7ecf2;
+    --ink-2: #a7b2bf;
+    --ink-3: #7c8794;
+    --accent: #3fb3bd;
+    --accent-ink: #7fd3da;
+    --accent-soft: #15353a;
+    --owned: #5cbd83;
+    --warn: #e0a95c;
+    --warn-soft: #3a2d15;
+    --s-catalog: #7aa5ef;
+    --s-authz: #b49ae8;
+    --s-api: #5cbd83;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 10px 30px -18px rgba(0, 0, 0, .8);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 13px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3 { margin: 0; text-wrap: balance; }
+  button { font: inherit; color: inherit; }
+  a { color: var(--accent-ink); }
+  code, .mono { font-family: var(--mono); }
+  code { font-size: .92em; background: var(--surface-3); padding: 0 4px; border-radius: 2px; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .eyebrow { font-family: var(--mono); font-size: 9.5px; font-weight: 500; letter-spacing: .13em; text-transform: uppercase; color: var(--ink-3); }
+
+  /* ---------- shell ---------- */
+  .app {
+    display: grid;
+    grid-template-columns: 268px minmax(0, 1fr) 392px;
+    grid-template-rows: auto minmax(0, 1fr);
+    height: 100vh;
+    min-height: 680px;
+  }
+  header.top {
+    grid-column: 1 / -1;
+    display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+    padding: 12px 20px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+  }
+  .brand { display: flex; flex-direction: column; gap: 1px; }
+  .brand .back { font-family: var(--mono); font-size: 10px; letter-spacing: .06em; color: var(--ink-3); text-decoration: none; margin-bottom: 2px; align-self: flex-start; }
+  .brand .back:hover { color: var(--accent-ink); }
+  .brand h1 { font-family: var(--cond); font-size: 19px; font-weight: 700; letter-spacing: -.005em; }
+  .brand .sub { font-size: 11.5px; color: var(--ink-3); }
+  .brand .sub a { color: var(--accent-ink); text-decoration: none; border-bottom: 1px solid var(--accent-soft); }
+  .filters { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+  .seg { display: flex; border: 1px solid var(--line); border-radius: 3px; overflow: hidden; }
+  .seg button { padding: 6px 11px; background: var(--surface); border: 0; border-right: 1px solid var(--line-soft); cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 6px; }
+  .seg button:last-child { border-right: 0; }
+  .seg button:hover { background: var(--surface-2); }
+  .seg button[aria-pressed="false"] { color: var(--ink-3); }
+  .seg button[aria-pressed="false"] .sw { opacity: .3; }
+  .sw { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+  .btn { padding: 6px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 3px; font-size: 12px; cursor: pointer; }
+  .btn:hover:not(:disabled) { background: var(--surface-2); border-color: var(--ink-3); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 500; }
+  :root[data-theme="dark"] .btn.primary { color: #06181a; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .btn.primary { color: #06181a; } }
+  .btn.primary:hover:not(:disabled) { background: var(--accent-ink); border-color: var(--accent-ink); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn.sm { padding: 3px 8px; font-size: 11px; }
+
+  /* ---------- rail ---------- */
+  .rail { background: var(--surface); border-right: 1px solid var(--line); overflow-y: auto; padding-bottom: 24px; }
+  .rail section { padding: 14px 16px; border-bottom: 1px solid var(--line-soft); }
+  .rail h2 { font-family: var(--cond); font-size: 13px; font-weight: 700; letter-spacing: .01em; margin-bottom: 8px; }
+  .rail p { margin: 0 0 8px; color: var(--ink-2); }
+  .tour-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+  .tour-head .num { font-family: var(--mono); font-size: 10px; font-weight: 600; color: var(--accent-ink); }
+  .tour-head h3 { font-family: var(--cond); font-size: 15px; font-weight: 700; }
+  .tour-body { color: var(--ink-2); }
+  .tour-body p { margin: 0 0 8px; }
+  .tour-nav { display: flex; gap: 6px; align-items: center; margin-top: 10px; }
+  .tour-nav .pos { margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--ink-3); }
+  .tour-list { list-style: none; margin: 0; padding: 0; }
+  .tour-list li button { width: 100%; text-align: left; background: none; border: 0; padding: 4px 6px; border-radius: 3px; cursor: pointer; color: var(--ink-2); display: flex; gap: 8px; }
+  .tour-list li button:hover { background: var(--surface-2); }
+  .tour-list li button[aria-current="true"] { background: var(--accent-soft); color: var(--accent-ink); }
+  .tour-list .n { font-family: var(--mono); font-size: 10px; color: var(--ink-3); width: 14px; flex: none; padding-top: 1px; }
+  .legend-row { display: flex; align-items: center; gap: 8px; margin: 4px 0; color: var(--ink-2); font-size: 12px; }
+  .legend-row svg { flex: none; }
+
+  /* ---------- canvas ---------- */
+  .canvas { overflow: auto; background: var(--ground); position: relative; }
+  svg.er { display: block; min-width: 1120px; width: 100%; height: auto; }
+  .grp rect { fill: none; stroke-dasharray: 4 4; }
+  .grp text { font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; }
+  .node { cursor: pointer; }
+  .node .box { fill: var(--surface); stroke: var(--line); stroke-width: 1; }
+  .node .hd { stroke: none; }
+  .node .nm { font-family: var(--mono); font-size: 11.5px; font-weight: 600; fill: var(--ink); }
+  .node .kd { font-family: var(--mono); font-size: 8.5px; letter-spacing: .1em; fill: var(--ink-3); text-transform: uppercase; }
+  .node .col { font-family: var(--mono); font-size: 10.5px; fill: var(--ink-2); }
+  .node .ky { font-family: var(--mono); font-size: 8.5px; font-weight: 600; }
+  .node .more { font-family: var(--mono); font-size: 9.5px; fill: var(--ink-3); }
+  .node:hover .box { stroke: var(--ink-3); }
+  .node.sel .box { stroke: var(--accent); stroke-width: 2; }
+  .node.dim { opacity: .28; }
+  .node.hot .box { stroke: var(--accent); stroke-width: 2; }
+  .node.view .box { stroke-dasharray: 5 3; }
+  .edge { fill: none; stroke: var(--ink-3); stroke-width: 1; opacity: .35; }
+  .edge.derived { stroke: var(--accent); stroke-dasharray: 5 4; }
+  .edge.logical { stroke-dasharray: 2 3; }
+  .edge.on { opacity: 1; stroke-width: 1.6; }
+  .edge.off { opacity: .07; }
+  .elab { font-family: var(--mono); font-size: 9px; fill: var(--ink-2); paint-order: stroke; stroke: var(--ground); stroke-width: 3px; }
+
+  /* ---------- inspector ---------- */
+  .insp { background: var(--surface); border-left: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+  .insp-head { padding: 14px 18px 10px; border-bottom: 1px solid var(--line-soft); }
+  .insp-head .ref { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); display: flex; gap: 8px; align-items: center; }
+  .insp-title { font-family: var(--cond); font-size: 20px; font-weight: 700; margin-top: 2px; word-break: break-word; }
+  .insp-head .purpose { color: var(--ink-2); margin-top: 6px; }
+  .badge { font-family: var(--mono); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; padding: 1px 5px; border-radius: 2px; color: #fff; }
+  .tabs { display: flex; border-bottom: 1px solid var(--line); padding: 0 12px; gap: 2px; }
+  .tabs button { background: none; border: 0; border-bottom: 2px solid transparent; padding: 8px 9px 7px; cursor: pointer; font-size: 12px; color: var(--ink-3); }
+  .tabs button[aria-selected="true"] { color: var(--ink); border-color: var(--accent); font-weight: 500; }
+  .panes { overflow-y: auto; padding: 14px 18px 24px; flex: 1; }
+  table.cols { width: 100%; border-collapse: collapse; font-size: 12px; }
+  table.cols th { text-align: left; font-family: var(--mono); font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); font-weight: 500; padding: 0 6px 6px 0; border-bottom: 1px solid var(--line); }
+  table.cols td { padding: 6px 6px 6px 0; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+  table.cols td.cn { font-family: var(--mono); font-weight: 500; white-space: nowrap; }
+  table.cols td.ct { font-family: var(--mono); color: var(--ink-3); font-size: 11px; white-space: nowrap; }
+  table.cols .note { color: var(--ink-2); font-size: 11.5px; margin-top: 2px; }
+  .k { font-family: var(--mono); font-size: 8.5px; font-weight: 600; padding: 0 3px; border-radius: 2px; margin-left: 4px; background: var(--surface-3); color: var(--ink-2); }
+  .k.pk { background: var(--accent-soft); color: var(--accent-ink); }
+  .k.fk { background: var(--warn-soft); color: var(--warn); }
+  .pane h4 { font-family: var(--cond); font-size: 13px; font-weight: 700; margin: 14px 0 6px; }
+  .pane h4:first-child { margin-top: 0; }
+  .pane p { margin: 0 0 8px; color: var(--ink-2); }
+  .pane ul.rules { margin: 0 0 8px; padding-left: 18px; color: var(--ink-2); }
+  .pane ul.rules li { margin: 3px 0; }
+  .pane ul.rules li::marker { color: var(--accent); }
+  .chips { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 6px; }
+  .chip { font-family: var(--mono); font-size: 11px; padding: 2px 7px; border-radius: 2px; background: var(--surface-2); border: 1px solid var(--line); cursor: pointer; color: var(--ink); }
+  .chip:hover { border-color: var(--accent); color: var(--accent-ink); }
+  .chip.fn::before { content: "ƒ "; color: var(--accent); }
+  pre.sig { font-family: var(--mono); font-size: 11px; background: var(--surface-2); border: 1px solid var(--line-soft); border-radius: 3px; padding: 8px 10px; white-space: pre-wrap; margin: 0 0 10px; color: var(--ink); }
+  .src a { font-family: var(--mono); font-size: 11.5px; }
+  .empty { color: var(--ink-3); }
+
+  @media (max-width: 1100px) {
+    .app { grid-template-columns: 1fr; grid-template-rows: auto auto 70vh auto; height: auto; }
+    .rail { border-right: 0; border-bottom: 1px solid var(--line); }
+    .insp { border-left: 0; border-top: 1px solid var(--line); min-height: 60vh; }
+  }
+  @media (max-width: 600px) {
+    header.top { padding: 12px 16px; }
+    .filters { margin-left: 0; }
+  }
+</style>
+
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <a class="back" href="../index.html">← All demos</a>
+      <h1>Catalog Data Store Schema</h1>
+      <div class="sub">The PostgreSQL schema behind the <a href="https://github.com/int32ltd/platform/blob/main/docs/service-catalog/reference.md">service catalog</a>: every table and view, what writes it, and why it is shaped that way. To run it, see <a href="https://github.com/int32ltd/platform/tree/main/demos/data-store">demos/data-store</a>.</div>
+    </div>
+    <div class="filters">
+      <span class="eyebrow">Schemas</span>
+      <div class="seg" id="schemas"></div>
+    </div>
+  </header>
+
+  <aside class="rail">
+    <section>
+      <h2>Guided tour</h2>
+      <div id="tour"></div>
+    </section>
+    <section>
+      <h2>All steps</h2>
+      <ol class="tour-list" id="tour-list"></ol>
+    </section>
+    <section style="border-bottom:0">
+      <h2>Legend</h2>
+      <div class="legend-row"><svg width="34" height="10"><line x1="0" y1="5" x2="34" y2="5" stroke="var(--ink-3)"/></svg>foreign key</div>
+      <div class="legend-row"><svg width="34" height="10"><line x1="0" y1="5" x2="34" y2="5" stroke="var(--ink-3)" stroke-dasharray="2 3"/></svg>reference by id or ref, no FK</div>
+      <div class="legend-row"><svg width="34" height="10"><line x1="0" y1="5" x2="34" y2="5" stroke="var(--accent)" stroke-dasharray="5 4"/></svg>derived from (a function computes it)</div>
+      <div class="legend-row"><svg width="34" height="14"><rect x="1" y="1" width="32" height="12" rx="2" fill="none" stroke="var(--ink-3)" stroke-dasharray="5 3"/></svg>view</div>
+      <div class="legend-row"><span class="k pk">PK</span><span class="k fk">FK</span><span class="k">UK</span> keys shown in the diagram</div>
+    </section>
+  </aside>
+
+  <main class="canvas"><svg class="er" id="er" role="img" aria-label="Entity-relationship diagram of the catalog data store"></svg></main>
+
+  <aside class="insp" aria-live="polite">
+    <div class="insp-head">
+      <div class="ref" id="iref"></div>
+      <div class="insp-title" id="ititle"></div>
+      <div class="purpose" id="ipurpose"></div>
+    </div>
+    <div class="tabs" id="tabs" role="tablist"></div>
+    <div class="panes" id="panes"></div>
+  </aside>
+</div>
+
+<!--
+  SCHEMA DATA — the single source for this page.
+
+  Keep it in sync with demos/data-store/sql/. Every table, view and column in
+  the catalog, authz and api schemas, and every function in them, must appear
+  here with the exact type Postgres reports. `./demo.sh test` fails when they
+  differ (see the "Keeping this page current" section of the demo README).
+
+  Column types use information_schema spelling ("timestamp with time zone",
+  "text[]", enum and other user-defined types by name).
+-->
+<script type="application/json" id="schema-data">
+{
+  "schemas": {
+    "catalog": { "title": "catalog", "about": "the facts: kinds, sources, resources, links, provenance, change log" },
+    "authz":   { "title": "authz",   "about": "grants that are facts, and access projections derived from the graph" },
+    "api":     { "title": "api",     "about": "the only surface the catalog service's read role can query" }
+  },
+  "tables": [
+    {
+      "id": "catalog.kind", "kind": "table", "col": 0, "file": "01-schema.sql",
+      "purpose": "A resource type, defined as data. Adding a kind is an insert, not a migration.",
+      "columns": [
+        { "name": "id", "type": "text", "key": "PK", "note": "e.g. component, aws_rds_instance; immutable" },
+        { "name": "major_version", "type": "integer", "note": "bumped by a retyping migration" },
+        { "name": "title", "type": "text" },
+        { "name": "description", "type": "text" },
+        { "name": "property_schema", "type": "jsonb", "note": "JSON Schema; validated by the API on write" },
+        { "name": "sensitive_properties", "type": "text[]", "note": "redacted for viewers without full access" },
+        { "name": "visibility", "type": "visibility", "note": "owner (default) or org" },
+        { "name": "identity_keys", "type": "text[]", "note": "properties used to recognise the same thing from another source" },
+        { "name": "materialise_on_reference", "type": "boolean", "note": "a link to a missing resource of this kind creates an unmatched placeholder (system)" },
+        { "name": "stale_after", "type": "interval", "note": "how long every source may consider it stale before the sweep tombstones it" },
+        { "name": "built_in", "type": "boolean", "note": "the permission model depends on it" },
+        { "name": "updated_at", "type": "timestamp with time zone" }
+      ],
+      "indexes": ["primary key (id)"],
+      "rules": [
+        "Each kind is also a resource of kind <code>kind</code> (for example <code>kind:component</code>), so schema changes go through the same audit trail and change log as everything else.",
+        "This table is the typed projection the write path validates against; <code>define_kind</code> keeps both in step."
+      ],
+      "writtenBy": ["catalog.define_kind"],
+      "readBy": ["catalog.ingest", "catalog.link_validate", "api.kind", "authz.viewer_readable_kinds"]
+    },
+    {
+      "id": "catalog.link_type", "kind": "table", "col": 0, "file": "01-schema.sql",
+      "purpose": "A link declared on a kind: which kinds it may point at, how many, and what it means for ownership.",
+      "columns": [
+        { "name": "kind_id", "type": "text", "key": "PK", "fk": "catalog.kind", "note": "the kind the link is declared on (the from side)" },
+        { "name": "name", "type": "text", "key": "PK", "note": "camelCase, e.g. owner, system, dependsOn" },
+        { "name": "target_kinds", "type": "text[]", "note": "allowed target kinds" },
+        { "name": "many", "type": "boolean", "note": "false: at most one applied target" },
+        { "name": "required", "type": "boolean", "note": "informational; an owner may be inherited" },
+        { "name": "ownership", "type": "link_ownership", "note": "grants, inherits or null" }
+      ],
+      "indexes": ["primary key (kind_id, name)", "link_type_one_grant: unique (kind_id) where ownership = 'grants'"],
+      "rules": [
+        "<b>grants</b> names the owner directly (component.owner → team).",
+        "<b>inherits</b> lets a resource take its owner from what it points at (k8s_workload.component, component.system).",
+        "At most one <b>grants</b> link per kind, enforced by a partial unique index."
+      ],
+      "writtenBy": ["catalog.define_kind"],
+      "readBy": ["catalog.link_validate", "catalog.owner_paths", "catalog.recompute_owners", "catalog.ingest"]
+    },
+    {
+      "id": "catalog.property_claim", "kind": "table", "col": 0, "file": "01-schema.sql",
+      "purpose": "Which source is authoritative for which property of which kind.",
+      "columns": [
+        { "name": "source_id", "type": "text", "key": "PK", "fk": "catalog.source" },
+        { "name": "kind_id", "type": "text", "key": "PK", "fk": "catalog.kind" },
+        { "name": "property", "type": "text", "key": "PK" },
+        { "name": "priority", "type": "integer", "note": "lower wins when two sources claim the same property" }
+      ],
+      "indexes": ["primary key (source_id, kind_id, property)"],
+      "rules": [
+        "A source's value is applied only for properties it claims. The loser's value stays in <code>resource_source.observed</code>.",
+        "The <code>manual</code> source supplies every property no source claims: facts with no other home belong to the catalog.",
+        "A manual edit through <code>api.update</code> cannot overwrite a claimed property; change it in the source system."
+      ],
+      "writtenBy": ["catalog.define_source"],
+      "readBy": ["catalog.merge_properties", "api.update"]
+    },
+    {
+      "id": "catalog.source", "kind": "table", "col": 0, "file": "01-schema.sql",
+      "purpose": "An ingestion connector plus its mapping, and what it is allowed to write.",
+      "columns": [
+        { "name": "id", "type": "text", "key": "PK", "note": "e.g. entra-id, github, aws-prod-4711, manual" },
+        { "name": "connector", "type": "text" },
+        { "name": "config", "type": "jsonb" },
+        { "name": "mapping", "type": "jsonb", "note": "payload → resource mapping, run by the connector; stored here so it is data" },
+        { "name": "writes_kinds", "type": "text[]", "note": "kinds this source may create or update; * for all" },
+        { "name": "full_sync_drop_threshold", "type": "numeric", "note": "default 0.20: a full run seeing 20% fewer resources is held" },
+        { "name": "freshness_slo", "type": "interval", "note": "e.g. the identity provider's membership SLO" }
+      ],
+      "indexes": ["primary key (id)"],
+      "rules": [
+        "Each source is also a resource (<code>source:github</code>), so mapping changes are audited.",
+        "<code>manual</code> is special twice: it owns unclaimed properties, and its assertion wins a single-valued link."
+      ],
+      "writtenBy": ["catalog.define_source"],
+      "readBy": ["catalog.ingest", "catalog.finish_run"]
+    },
+    {
+      "id": "catalog.ingestion_run", "kind": "table", "col": 0, "file": "01-schema.sql",
+      "purpose": "One sync run of one source. Full runs drive mark-and-sweep and the guard against mass deletion.",
+      "columns": [
+        { "name": "id", "type": "bigint", "key": "PK" },
+        { "name": "source_id", "type": "text", "fk": "catalog.source" },
+        { "name": "mode", "type": "text", "note": "full or delta" },
+        { "name": "status", "type": "run_status", "note": "running, completed, held, failed" },
+        { "name": "started_at", "type": "timestamp with time zone" },
+        { "name": "finished_at", "type": "timestamp with time zone" },
+        { "name": "resources_seen", "type": "integer" },
+        { "name": "baseline", "type": "integer", "note": "resources_seen of the last completed full run" },
+        { "name": "note", "type": "text", "note": "outcome, e.g. why it was held" }
+      ],
+      "indexes": ["primary key (id)", "ingestion_run_source (source_id, started_at desc)"],
+      "rules": [
+        "A full run that sees far fewer resources than its baseline is <b>held</b>: nothing is marked stale until a human releases it. A revoked credential looks exactly like everything being deleted.",
+        "A completed full run marks every resource of the source it did not see as stale."
+      ],
+      "writtenBy": ["catalog.start_run", "catalog.finish_run", "catalog.release_run", "catalog.ingest"],
+      "readBy": ["catalog.mark_stale"]
+    },
+    {
+      "id": "catalog.resource", "kind": "table", "col": 1, "file": "01-schema.sql",
+      "purpose": "Every resource of every kind, one row each. The centre of the model.",
+      "columns": [
+        { "name": "id", "type": "bigint", "key": "PK", "note": "internal; never leaves the database" },
+        { "name": "kind", "type": "text", "fk": "catalog.kind" },
+        { "name": "identifier", "type": "text", "note": "unique within the kind, immutable" },
+        { "name": "ref", "type": "text", "key": "UK", "note": "generated kind:identifier; the stable id everything outside uses" },
+        { "name": "title", "type": "text" },
+        { "name": "properties", "type": "jsonb", "note": "the merge of every source's observation" },
+        { "name": "property_provenance", "type": "jsonb", "note": "property → source whose value won" },
+        { "name": "effective_owners", "type": "text[]", "note": "team refs, written only by the resolver; {} is unowned" },
+        { "name": "version", "type": "bigint", "note": "matches change_log.version" },
+        { "name": "unmatched", "type": "boolean", "note": "placeholder nobody has claimed yet" },
+        { "name": "created_at", "type": "timestamp with time zone" },
+        { "name": "updated_at", "type": "timestamp with time zone" },
+        { "name": "deleted_at", "type": "timestamp with time zone", "note": "tombstone: hidden from the API, restorable" },
+        { "name": "search", "type": "tsvector", "note": "generated from identifier and title; never sensitive properties" }
+      ],
+      "indexes": [
+        "primary key (id)", "unique (kind, identifier)", "unique (ref)",
+        "resource_properties: GIN (properties jsonb_path_ops)",
+        "resource_owners: GIN (effective_owners)",
+        "resource_search: GIN (search)",
+        "resource_kind_live: (kind) where deleted_at is null",
+        "resource_unowned: (kind) where live and effective_owners = '{}'",
+        "resource_updated: (updated_at)"
+      ],
+      "rules": [
+        "One generic table with <code>jsonb</code> properties, not a table per kind, because kinds are data and a new kind must not need DDL.",
+        "<code>properties</code> is never written directly. It is recomputed from <code>resource_source.observed</code> on every write.",
+        "<code>effective_owners</code> is materialised so the visibility check is an indexed array overlap, not a graph walk per row.",
+        "A team owns itself, so its members see its sensitive properties."
+      ],
+      "writtenBy": ["catalog.ingest", "catalog.retract", "catalog.recompute_owners"],
+      "readBy": ["api.resource", "catalog.owner_paths", "authz.fga_tuples", "api.search"]
+    },
+    {
+      "id": "catalog.resource_source", "kind": "table", "col": 1, "file": "01-schema.sql",
+      "purpose": "Provenance and freshness: one row per resource per source that has seen it, holding what that source said.",
+      "columns": [
+        { "name": "resource_id", "type": "bigint", "key": "PK", "fk": "catalog.resource" },
+        { "name": "source_id", "type": "text", "key": "PK", "fk": "catalog.source" },
+        { "name": "external_id", "type": "text", "note": "ARN, Entra object id, GitHub node id" },
+        { "name": "observed", "type": "jsonb", "note": "the source's last report, applied or not" },
+        { "name": "first_seen_at", "type": "timestamp with time zone" },
+        { "name": "last_seen_at", "type": "timestamp with time zone" },
+        { "name": "last_run_id", "type": "bigint", "fk": "catalog.ingestion_run" },
+        { "name": "stale_since", "type": "timestamp with time zone", "note": "set when a full run missed it" }
+      ],
+      "indexes": ["primary key (resource_id, source_id)", "resource_source_sweep (source_id, last_run_id)"],
+      "rules": [
+        "Raw observations are kept so the merged view can always be rebuilt, priorities can change, and disagreements are a plain query.",
+        "Each write is a patch: keys given replace the source's observation, <code>null</code> removes a key.",
+        "The API exposes only <code>last_seen_at</code> and staleness (as <code>freshness</code>), never <code>observed</code>, which may hold sensitive values."
+      ],
+      "writtenBy": ["catalog.ingest", "catalog.retract", "catalog.mark_stale"],
+      "readBy": ["catalog.merge_properties", "catalog.sweep", "api.resource"]
+    },
+    {
+      "id": "catalog.link", "kind": "table", "col": 1, "file": "01-schema.sql",
+      "purpose": "Typed, directed edges between resources, one row per edge per source that asserts it.",
+      "columns": [
+        { "name": "id", "type": "bigint", "key": "PK" },
+        { "name": "from_id", "type": "bigint", "fk": "catalog.resource" },
+        { "name": "name", "type": "text", "note": "a link_type of the from resource's kind" },
+        { "name": "to_ref", "type": "text", "note": "target reference, whether or not it exists yet" },
+        { "name": "to_id", "type": "bigint", "fk": "catalog.resource", "note": "null while dangling" },
+        { "name": "source_id", "type": "text", "fk": "catalog.source" },
+        { "name": "created_at", "type": "timestamp with time zone" },
+        { "name": "last_seen_at", "type": "timestamp with time zone" },
+        { "name": "applied", "type": "boolean", "note": "for single-valued links, true on exactly one row" }
+      ],
+      "indexes": [
+        "primary key (id)", "unique (from_id, name, to_ref, source_id)",
+        "link_applied_forward (from_id, name) where applied",
+        "link_reverse (to_id, name)",
+        "link_dangling (to_ref) where to_id is null"
+      ],
+      "rules": [
+        "An edge exists while any source asserts it; retracting a source removes only its rows.",
+        "<b>Dangling</b>: a link to something not ingested yet is stored with <code>to_id</code> null, contributes no owner, and a trigger attaches it when the target appears. A hard delete sets <code>to_id</code> back to null, so a re-created resource reattaches.",
+        "<b>Single-valued conflicts</b>: every assertion is kept; one is applied. A <code>manual</code> override wins, otherwise the earliest assertion.",
+        "Traversals (ownership, dependents, agent context) are recursive CTEs over the forward and reverse indexes."
+      ],
+      "writtenBy": ["catalog.ingest", "catalog.retract", "catalog.apply_single_link", "catalog.attach_dangling"],
+      "readBy": ["catalog.owner_paths", "catalog.recompute_owners", "authz.group_user", "api.link", "authz.fga_tuples"]
+    },
+    {
+      "id": "catalog.scorecard_result", "kind": "table", "col": 1, "file": "01-schema.sql",
+      "purpose": "The current result of each scorecard for each resource.",
+      "columns": [
+        { "name": "resource_id", "type": "bigint", "key": "PK", "fk": "catalog.resource" },
+        { "name": "scorecard", "type": "text", "key": "PK", "note": "identifier of the scorecard resource" },
+        { "name": "level", "type": "text", "note": "highest level reached; null for none" },
+        { "name": "rules", "type": "jsonb", "note": "{ rule-id: { pass, ... } }" },
+        { "name": "evaluated_at", "type": "timestamp with time zone" }
+      ],
+      "indexes": ["primary key (resource_id, scorecard)"],
+      "rules": ["Written by the scorecard consumer, which evaluates the rules in the expression language. The store never evaluates expressions."],
+      "writtenBy": [],
+      "readBy": []
+    },
+    {
+      "id": "catalog.scorecard_history", "kind": "table", "col": 1, "file": "01-schema.sql",
+      "purpose": "Every scorecard evaluation over time, so trend reports are a query.",
+      "columns": [
+        { "name": "resource_id", "type": "bigint", "ref": "catalog.resource" },
+        { "name": "scorecard", "type": "text" },
+        { "name": "level", "type": "text" },
+        { "name": "rules", "type": "jsonb" },
+        { "name": "evaluated_at", "type": "timestamp with time zone", "note": "partition key" }
+      ],
+      "indexes": ["partitioned by range (evaluated_at)", "scorecard_history_lookup (scorecard, evaluated_at)"],
+      "rules": ["No foreign key: history outlives the resources it describes."],
+      "writtenBy": [],
+      "readBy": []
+    },
+    {
+      "id": "catalog.change_log", "kind": "table", "col": 2, "file": "01-schema.sql",
+      "purpose": "Every change to every resource: the audit trail, the outbox and the history users see.",
+      "columns": [
+        { "name": "id", "type": "bigint", "key": "PK" },
+        { "name": "tx_id", "type": "xid8", "note": "the writing transaction; consumers read by (tx_id, id)" },
+        { "name": "occurred_at", "type": "timestamp with time zone", "key": "PK", "note": "partition key, monthly" },
+        { "name": "resource_id", "type": "bigint", "ref": "catalog.resource", "note": "no FK: the log outlives hard deletes" },
+        { "name": "resource_ref", "type": "text" },
+        { "name": "version", "type": "bigint" },
+        { "name": "op", "type": "text", "note": "create, update, delete, restore, owners" },
+        { "name": "actor_type", "type": "actor_type", "note": "user, source or system" },
+        { "name": "actor", "type": "text", "note": "e.g. user:frank, aws-prod-4711, sweep" },
+        { "name": "diff", "type": "jsonb", "note": "properties, title, links, effectiveOwners, unmatched, tombstoned" },
+        { "name": "reason", "type": "text", "note": "e.g. a change ticket" }
+      ],
+      "indexes": ["primary key (id, occurred_at)", "partitioned by range (occurred_at), one partition per month + default", "change_log_tx (tx_id, id)", "change_log_resource (resource_id, occurred_at)"],
+      "rules": [
+        "Append-only: a trigger rejects update and delete.",
+        "<b>Why tx_id</b>: ids are assigned at insert, not commit, so reading \"everything after id 100\" can miss 99 from a slower transaction. Consumers read only rows below the oldest running transaction (<code>pg_snapshot_xmin</code>), where nothing new can appear.",
+        "Every insert also sends <code>pg_notify('catalog_changes', ref)</code>, so consumers can block on LISTEN.",
+        "A write and its ownership effect appear together: <code>update</code> then <code>owners</code>, same actor and reason."
+      ],
+      "writtenBy": ["catalog.log_change"],
+      "readBy": ["catalog.poll_changes", "api.change"]
+    },
+    {
+      "id": "catalog.consumer", "kind": "table", "col": 2, "file": "01-schema.sql",
+      "purpose": "Outbox offsets, one row per consumer of the change log.",
+      "columns": [
+        { "name": "name", "type": "text", "key": "PK", "note": "openfga-sync, scorecards, search-indexer, kafka-relay" },
+        { "name": "last_tx", "type": "xid8" },
+        { "name": "last_id", "type": "bigint" }
+      ],
+      "indexes": ["primary key (name)"],
+      "rules": ["Kafka is optional: if it is already run, a <code>kafka-relay</code> consumer publishes the log to <code>catalog.changes</code>, and nothing else changes."],
+      "writtenBy": ["catalog.ack_changes"],
+      "readBy": ["catalog.poll_changes"]
+    },
+    {
+      "id": "authz.platform_grant", "kind": "table", "col": 3, "file": "01-schema.sql",
+      "purpose": "Who administers or audits the whole platform. A fact, kept in git.",
+      "columns": [
+        { "name": "role", "type": "text", "key": "PK", "note": "admin or auditor" },
+        { "name": "principal_ref", "type": "text", "key": "PK", "note": "user: or identity_group:" }
+      ],
+      "indexes": ["primary key (role, principal_ref)"],
+      "rules": ["Admins see everything and hold can_transfer; auditors read everything and change nothing."],
+      "writtenBy": [],
+      "readBy": ["authz.refresh_memberships", "authz.fga_tuples"]
+    },
+    {
+      "id": "authz.kind_grant", "kind": "table", "col": 3, "file": "01-schema.sql",
+      "purpose": "Rare kind-wide grants: a team or group that may edit every resource of a kind.",
+      "columns": [
+        { "name": "kind_id", "type": "text", "key": "PK", "fk": "catalog.kind" },
+        { "name": "relation", "type": "text", "key": "PK", "note": "editor" },
+        { "name": "principal_ref", "type": "text", "key": "PK", "note": "team: or identity_group:" }
+      ],
+      "indexes": ["primary key (kind_id, relation, principal_ref)"],
+      "rules": ["There are no per-resource ACLs. Kind grants are the only way to reach resources you do not own."],
+      "writtenBy": [],
+      "readBy": ["authz.refresh_memberships", "authz.fga_tuples"]
+    },
+    {
+      "id": "authz.group_user", "kind": "view", "col": 3, "file": "02-graph.sql",
+      "purpose": "Every user in every group, following nested groups. A view over members links.",
+      "columns": [
+        { "name": "group_ref", "type": "text" },
+        { "name": "user_ref", "type": "text" }
+      ],
+      "indexes": [],
+      "rules": ["The facts stay nested exactly as the identity provider asserts them; this recursive view flattens them for the projections."],
+      "writtenBy": [],
+      "readBy": ["authz.refresh_memberships"]
+    },
+    {
+      "id": "authz.user_team", "kind": "table", "col": 3, "file": "01-schema.sql",
+      "purpose": "Derived: which teams each user belongs to. The query path's copy of what OpenFGA computes.",
+      "columns": [
+        { "name": "user_ref", "type": "text", "key": "PK" },
+        { "name": "team_ref", "type": "text", "key": "PK" }
+      ],
+      "indexes": ["primary key (user_ref, team_ref)", "user_team_team (team_ref)"],
+      "rules": [
+        "Rebuilt in the same transaction as any change to <code>members</code> or <code>backedBy</code>, so offboarding takes effect when the delta sync commits.",
+        "Never written by hand. The nightly consistency check compares the result with OpenFGA's evaluation of the tuples."
+      ],
+      "writtenBy": ["authz.refresh_memberships"],
+      "readBy": ["authz.viewer_teams"]
+    },
+    {
+      "id": "authz.user_role", "kind": "table", "col": 3, "file": "01-schema.sql",
+      "purpose": "Derived: platform roles per user, from platform_grant and group membership.",
+      "columns": [
+        { "name": "user_ref", "type": "text", "key": "PK" },
+        { "name": "role", "type": "text", "key": "PK" }
+      ],
+      "indexes": ["primary key (user_ref, role)"],
+      "rules": [],
+      "writtenBy": ["authz.refresh_memberships"],
+      "readBy": ["authz.viewer_is"]
+    },
+    {
+      "id": "authz.user_kind_grant", "kind": "table", "col": 3, "file": "01-schema.sql",
+      "purpose": "Derived: kind-wide grants per user, from kind_grant and membership.",
+      "columns": [
+        { "name": "user_ref", "type": "text", "key": "PK" },
+        { "name": "kind_id", "type": "text", "key": "PK" },
+        { "name": "relation", "type": "text", "key": "PK" }
+      ],
+      "indexes": ["primary key (user_ref, kind_id, relation)"],
+      "rules": [],
+      "writtenBy": ["authz.refresh_memberships"],
+      "readBy": ["authz.viewer_readable_kinds", "authz.viewer_privileged_kinds", "authz.viewer_can_edit"]
+    },
+    {
+      "id": "authz.fga_tuples", "kind": "view", "col": 3, "file": "04-access.sql",
+      "purpose": "The full OpenFGA tuple set the catalog should have written, derived from the graph.",
+      "columns": [
+        { "name": "object", "type": "text", "note": "e.g. resource:component/checkout-service" },
+        { "name": "relation", "type": "text", "note": "member, backed_by, kind, owner, platform, org_viewer, editor, admin, auditor" },
+        { "name": "subject", "type": "text", "note": "e.g. team:payments, identity_group:eng-payments#member" }
+      ],
+      "indexes": [],
+      "rules": [
+        "One owner tuple per entry in <code>effective_owners</code>: OpenFGA receives the resolver's output and never re-derives ownership.",
+        "The openfga-sync consumer writes the difference between this view and what it last wrote."
+      ],
+      "writtenBy": [],
+      "readBy": []
+    },
+    {
+      "id": "api.resource", "kind": "view", "col": 4, "file": "04-access.sql",
+      "purpose": "Resources the current viewer may see, with sensitive properties redacted. The one copy of the visibility rule.",
+      "columns": [
+        { "name": "ref", "type": "text" },
+        { "name": "kind", "type": "text" },
+        { "name": "identifier", "type": "text" },
+        { "name": "title", "type": "text" },
+        { "name": "properties", "type": "jsonb", "note": "sensitive keys removed unless full access" },
+        { "name": "redacted", "type": "text[]", "note": "which keys were removed" },
+        { "name": "effective_owners", "type": "text[]" },
+        { "name": "provenance", "type": "jsonb", "note": "minus redacted keys" },
+        { "name": "freshness", "type": "jsonb", "note": "{ source: { lastSeenAt, stale } }" },
+        { "name": "unmatched", "type": "boolean" },
+        { "name": "version", "type": "bigint" },
+        { "name": "created_at", "type": "timestamp with time zone" },
+        { "name": "updated_at", "type": "timestamp with time zone" },
+        { "name": "sensitive_visible", "type": "boolean", "note": "whether the viewer has full access" }
+      ],
+      "indexes": [],
+      "rules": [
+        "<b>Row visible</b>: live, and (<code>effective_owners && viewer's teams</code> or the kind is readable: org-visible, kind-granted, or the viewer is admin/auditor).",
+        "<b>Full properties</b>: owner team member, kind editor, admin or auditor.",
+        "The viewer comes from <code>set local catalog.viewer = 'user:…'</code>. An unset, unknown or tombstoned viewer sees nothing.",
+        "Not row-level security: RLS cannot redact a key inside jsonb, and the rule would then live in two places.",
+        "<code>security_barrier</code>, owned by catalog_owner; the service role has no access to the tables underneath."
+      ],
+      "writtenBy": [],
+      "readBy": ["api.get", "api.search", "api.who_owns", "api.context", "api.update", "authz.access_matrix"]
+    },
+    {
+      "id": "api.link", "kind": "view", "col": 4, "file": "04-access.sql",
+      "purpose": "Applied edges whose both ends the viewer can see (a dangling edge needs only its source end).",
+      "columns": [
+        { "name": "from_ref", "type": "text" },
+        { "name": "name", "type": "text" },
+        { "name": "to_ref", "type": "text" },
+        { "name": "dangling", "type": "boolean" },
+        { "name": "sources", "type": "text[]", "note": "sources whose assertion is applied" },
+        { "name": "overridden", "type": "text[]", "note": "sources whose assertion lost" },
+        { "name": "last_seen_at", "type": "timestamp with time zone" }
+      ],
+      "indexes": [],
+      "rules": ["Built on api.resource for both ends, so a hidden resource never leaks through an edge."],
+      "writtenBy": [],
+      "readBy": ["api.context"]
+    },
+    {
+      "id": "api.change", "kind": "view", "col": 4, "file": "04-access.sql",
+      "purpose": "History of resources the viewer can see now, with sensitive values in diffs replaced by \"(redacted)\".",
+      "columns": [
+        { "name": "occurred_at", "type": "timestamp with time zone" },
+        { "name": "resource_ref", "type": "text" },
+        { "name": "version", "type": "bigint" },
+        { "name": "op", "type": "text" },
+        { "name": "actor_type", "type": "actor_type" },
+        { "name": "actor", "type": "text" },
+        { "name": "diff", "type": "jsonb" },
+        { "name": "reason", "type": "text" }
+      ],
+      "indexes": [],
+      "rules": ["The viewer learns that a sensitive property changed, not what it changed to."],
+      "writtenBy": [],
+      "readBy": ["api.changes_since"]
+    },
+    {
+      "id": "api.kind", "kind": "view", "col": 4, "file": "04-access.sql",
+      "purpose": "Kind definitions with their links, for clients that build typed schemas (GraphQL).",
+      "columns": [
+        { "name": "id", "type": "text" },
+        { "name": "title", "type": "text" },
+        { "name": "description", "type": "text" },
+        { "name": "visibility", "type": "visibility" },
+        { "name": "sensitive_properties", "type": "text[]" },
+        { "name": "identity_keys", "type": "text[]" },
+        { "name": "links", "type": "jsonb" }
+      ],
+      "indexes": [],
+      "rules": ["Empty without a live viewer."],
+      "writtenBy": [],
+      "readBy": []
+    }
+  ],
+  "edges": [
+    { "from": "catalog.link_type", "to": "catalog.kind", "type": "fk" },
+    { "from": "catalog.property_claim", "to": "catalog.kind", "type": "fk" },
+    { "from": "catalog.property_claim", "to": "catalog.source", "type": "fk" },
+    { "from": "catalog.ingestion_run", "to": "catalog.source", "type": "fk" },
+    { "from": "catalog.resource", "to": "catalog.kind", "type": "fk" },
+    { "from": "catalog.resource_source", "to": "catalog.resource", "type": "fk" },
+    { "from": "catalog.resource_source", "to": "catalog.source", "type": "fk" },
+    { "from": "catalog.resource_source", "to": "catalog.ingestion_run", "type": "fk" },
+    { "from": "catalog.link", "to": "catalog.resource", "type": "fk", "label": "from_id, to_id" },
+    { "from": "catalog.link", "to": "catalog.source", "type": "fk" },
+    { "from": "catalog.scorecard_result", "to": "catalog.resource", "type": "fk" },
+    { "from": "catalog.scorecard_history", "to": "catalog.resource", "type": "logical" },
+    { "from": "catalog.change_log", "to": "catalog.resource", "type": "logical" },
+    { "from": "authz.kind_grant", "to": "catalog.kind", "type": "fk" },
+    { "from": "catalog.resource_source", "to": "catalog.resource", "type": "derived", "label": "merge → properties" },
+    { "from": "catalog.link", "to": "catalog.resource", "type": "derived", "label": "resolver → effective_owners" },
+    { "from": "catalog.resource", "to": "catalog.change_log", "type": "derived", "label": "every write" },
+    { "from": "catalog.change_log", "to": "catalog.consumer", "type": "derived", "label": "poll / ack" },
+    { "from": "catalog.link", "to": "authz.group_user", "type": "derived", "label": "members" },
+    { "from": "authz.group_user", "to": "authz.user_team", "type": "derived", "label": "+ backedBy" },
+    { "from": "authz.platform_grant", "to": "authz.user_role", "type": "derived" },
+    { "from": "authz.kind_grant", "to": "authz.user_kind_grant", "type": "derived" },
+    { "from": "catalog.resource", "to": "authz.fga_tuples", "type": "derived", "label": "owner, kind" },
+    { "from": "catalog.link", "to": "authz.fga_tuples", "type": "derived" },
+    { "from": "catalog.resource", "to": "api.resource", "type": "derived" },
+    { "from": "authz.user_team", "to": "api.resource", "type": "derived", "label": "viewer's teams" },
+    { "from": "authz.user_role", "to": "api.resource", "type": "derived" },
+    { "from": "authz.user_kind_grant", "to": "api.resource", "type": "derived" },
+    { "from": "api.resource", "to": "api.link", "type": "derived", "label": "both ends" },
+    { "from": "catalog.link", "to": "api.link", "type": "derived" },
+    { "from": "api.resource", "to": "api.change", "type": "derived" },
+    { "from": "catalog.change_log", "to": "api.change", "type": "derived" },
+    { "from": "catalog.kind", "to": "api.kind", "type": "derived" }
+  ],
+  "functions": [
+    { "id": "catalog.ingest", "file": "03-write.sql", "sig": "ingest(source, kind, identifier, title?, properties?, links?, external_id?, run_id?, actor_type?, actor?, reason?) → bigint",
+      "does": "The one upsert every source uses, including manual edits and the git reconciler. In one transaction: check the source may write the kind; resolve identity (identifier, then identity keys, then create; restore a tombstone); patch the source's observation; re-merge properties; replace this source's assertions for each link given; create placeholders for dangling targets; bump version and log; recompute ownership and membership if they could have changed.",
+      "touches": ["catalog.source", "catalog.kind", "catalog.resource", "catalog.resource_source", "catalog.link", "catalog.link_type", "catalog.ingestion_run", "catalog.change_log"] },
+    { "id": "catalog.retract", "file": "03-write.sql", "sig": "retract(source, ref, actor_type?, actor?, reason?) → boolean",
+      "does": "A source no longer sees a resource. Removes its observation and link assertions; re-merges if other sources remain, otherwise tombstones it. Recomputes ownership of everything that inherited through it.",
+      "touches": ["catalog.resource", "catalog.resource_source", "catalog.link", "catalog.change_log"] },
+    { "id": "catalog.define_kind", "file": "03-write.sql", "sig": "define_kind(doc jsonb, actor = 'git')",
+      "does": "Upserts a kind and its link types from a kind document, and ingests it as the resource kind:<id>.",
+      "touches": ["catalog.kind", "catalog.link_type", "catalog.resource"] },
+    { "id": "catalog.define_source", "file": "03-write.sql", "sig": "define_source(doc jsonb, actor = 'git')",
+      "does": "Upserts a source and its property claims, and ingests it as the resource source:<id>.",
+      "touches": ["catalog.source", "catalog.property_claim", "catalog.resource"] },
+    { "id": "catalog.start_run", "file": "03-write.sql", "sig": "start_run(source, mode = 'full') → bigint",
+      "does": "Opens an ingestion run; its baseline is the last completed full run's count.", "touches": ["catalog.ingestion_run"] },
+    { "id": "catalog.finish_run", "file": "03-write.sql", "sig": "finish_run(run_id) → run_status",
+      "does": "Holds a full run that saw far fewer resources than its baseline. Otherwise completes it and, for full runs, marks unseen resources stale.",
+      "touches": ["catalog.ingestion_run", "catalog.source", "catalog.resource_source"] },
+    { "id": "catalog.release_run", "file": "03-write.sql", "sig": "release_run(run_id, actor) → int",
+      "does": "A human confirms a held run is genuine; marks stale what finish_run would have.", "touches": ["catalog.ingestion_run", "catalog.resource_source"] },
+    { "id": "catalog.mark_stale", "file": "03-write.sql", "sig": "mark_stale(run) → int",
+      "does": "Sets stale_since on every row of the run's source that the run did not see.", "touches": ["catalog.resource_source"] },
+    { "id": "catalog.sweep", "file": "03-write.sql", "sig": "sweep(as_of = now()) → int",
+      "does": "Tombstones live resources that every source has considered stale for longer than the kind's stale_after, by retracting them for each source.",
+      "touches": ["catalog.resource", "catalog.resource_source", "catalog.kind"] },
+    { "id": "catalog.poll_changes", "file": "03-write.sql", "sig": "poll_changes(consumer, limit = 100) → setof change_log",
+      "does": "Change-log rows after the consumer's offset, in (tx_id, id) order, only below the oldest running transaction.", "touches": ["catalog.change_log", "catalog.consumer"] },
+    { "id": "catalog.ack_changes", "file": "03-write.sql", "sig": "ack_changes(consumer, tx xid8, id bigint)",
+      "does": "Advances a consumer's offset, never backwards.", "touches": ["catalog.consumer"] },
+    { "id": "catalog.log_change", "file": "03-write.sql", "sig": "log_change(resource_id, ref, version, op, actor_type, actor, diff, reason)",
+      "does": "Appends to the change log and notifies listeners on catalog_changes.", "touches": ["catalog.change_log"] },
+    { "id": "catalog.merge_properties", "file": "02-graph.sql", "sig": "merge_properties(resource_id) → (properties, provenance)",
+      "does": "For each key any source observed: candidates are the sources claiming it, plus manual if nobody does; lowest priority wins.",
+      "touches": ["catalog.resource_source", "catalog.property_claim"] },
+    { "id": "catalog.owner_paths", "file": "02-graph.sql", "sig": "owner_paths(resource_id) → table(owner_ref, refs[], links[])",
+      "does": "The ownership resolver, and the only place ownership logic lives. A team owns itself; else an applied grants link to a live team names the owner; else follow applied inherits links recursively, at most 6 hops, skipping refs already on the path. Each row is one owner with its proof.",
+      "touches": ["catalog.resource", "catalog.link", "catalog.link_type"] },
+    { "id": "catalog.resolve_owners", "file": "02-graph.sql", "sig": "resolve_owners(resource_id) → text[]",
+      "does": "Distinct, sorted owners from owner_paths. {} means unowned.", "touches": [] },
+    { "id": "catalog.recompute_owners", "file": "02-graph.sql", "sig": "recompute_owners(resource_id, actor_type, actor, reason) → int",
+      "does": "Walks backwards over grants/inherits links from a resource and rewrites effective_owners wherever the resolver now disagrees, logging op = owners. Runs inside the write transaction, so access is never stale.",
+      "touches": ["catalog.resource", "catalog.link", "catalog.link_type", "catalog.change_log"] },
+    { "id": "catalog.apply_single_link", "file": "02-graph.sql", "sig": "apply_single_link(from_id, name)",
+      "does": "Re-applies precedence for a single-valued link: manual first, then earliest.", "touches": ["catalog.link"] },
+    { "id": "catalog.link_validate", "file": "02-graph.sql", "sig": "trigger: before insert on catalog.link",
+      "does": "Rejects undeclared links and wrong target kinds, whatever the write path; fills to_id if the target exists.", "touches": ["catalog.link", "catalog.link_type"] },
+    { "id": "catalog.attach_dangling", "file": "02-graph.sql", "sig": "trigger: after insert on catalog.resource",
+      "does": "Attaches every dangling link whose to_ref is the new resource.", "touches": ["catalog.link"] },
+    { "id": "catalog.change_log_immutable", "file": "01-schema.sql", "sig": "trigger: before update or delete on catalog.change_log",
+      "does": "Raises: the change log is append-only.", "touches": ["catalog.change_log"] },
+    { "id": "catalog.ensure_change_log_partition", "file": "01-schema.sql", "sig": "ensure_change_log_partition(month date) → text",
+      "does": "Creates a month's change-log partition. Schedule it (or pg_partman) to stay ahead.", "touches": ["catalog.change_log"] },
+    { "id": "catalog.jsonb_diff", "file": "02-graph.sql", "sig": "jsonb_diff(a jsonb, b jsonb) → jsonb",
+      "does": "{ key: { from, to } } for every key whose value differs.", "touches": [] },
+    { "id": "authz.refresh_memberships", "file": "02-graph.sql", "sig": "refresh_memberships()",
+      "does": "Rebuilds user_team, user_role and user_kind_grant from nested group membership, backedBy links and the grant tables.",
+      "touches": ["authz.group_user", "authz.user_team", "authz.user_role", "authz.user_kind_grant", "authz.platform_grant", "authz.kind_grant"] },
+    { "id": "authz.viewer", "file": "04-access.sql", "sig": "viewer() → text",
+      "does": "The current catalog.viewer, if it is a live user resource; otherwise null.", "touches": ["catalog.resource"] },
+    { "id": "authz.viewer_teams", "file": "04-access.sql", "sig": "viewer_teams() → text[]", "does": "The viewer's teams.", "touches": ["authz.user_team"] },
+    { "id": "authz.viewer_is", "file": "04-access.sql", "sig": "viewer_is(role) → boolean", "does": "Whether the viewer holds a platform role.", "touches": ["authz.user_role"] },
+    { "id": "authz.viewer_readable_kinds", "file": "04-access.sql", "sig": "viewer_readable_kinds() → text[]",
+      "does": "Kinds the viewer may list regardless of ownership: org kinds, kind grants, everything for admins and auditors.", "touches": ["catalog.kind", "authz.user_kind_grant"] },
+    { "id": "authz.viewer_privileged_kinds", "file": "04-access.sql", "sig": "viewer_privileged_kinds() → text[]",
+      "does": "Kinds the viewer sees in full regardless of ownership: kind grants, everything for admins and auditors.", "touches": ["catalog.kind", "authz.user_kind_grant"] },
+    { "id": "authz.viewer_can_edit", "file": "04-access.sql", "sig": "viewer_can_edit(kind, owners) → boolean",
+      "does": "Owner team member, kind editor or admin.", "touches": ["authz.user_kind_grant"] },
+    { "id": "authz.viewer_can_transfer", "file": "04-access.sql", "sig": "viewer_can_transfer(kind) → boolean",
+      "does": "Platform admin: moving ownership is a privileged write.", "touches": [] },
+    { "id": "authz.access_matrix", "file": "04-access.sql", "sig": "access_matrix(ref) → table(user_ref, can_view, sees_sensitive, can_edit, can_transfer)",
+      "does": "Admin diagnostic: evaluates the API's own rule for every live user against one resource.", "touches": ["api.resource"] },
+    { "id": "api.get", "file": "04-access.sql", "sig": "get(ref) → setof api.resource", "does": "One resource, if visible.", "touches": ["api.resource"] },
+    { "id": "api.search", "file": "04-access.sql", "sig": "search(query, kind?, limit = 20) → setof api.resource",
+      "does": "Full-text search: the GIN index finds candidates, api.resource decides visibility.", "touches": ["catalog.resource", "api.resource"] },
+    { "id": "api.who_owns", "file": "04-access.sql", "sig": "who_owns(ref) → table(owner, path)",
+      "does": "Each owner with the path that proves it; steps the viewer cannot see are shown as (hidden).", "touches": ["catalog.resource", "api.resource"] },
+    { "id": "api.context", "file": "04-access.sql", "sig": "context(focus[], depth = 2, max_resources = 60) → jsonb",
+      "does": "A bounded neighbourhood for agents, walked in both directions over api.link. Filtering happens before the budget, so truncation never reveals hidden resources.",
+      "touches": ["api.resource", "api.link"] },
+    { "id": "api.changes_since", "file": "04-access.sql", "sig": "changes_since(ts) → setof api.change", "does": "Visible history after a timestamp.", "touches": ["api.change"] },
+    { "id": "api.update", "file": "04-access.sql", "sig": "update(ref, properties?, links?, reason?) → setof api.resource",
+      "does": "A manual edit on behalf of the viewer: needs can_edit, and can_transfer for the owner link; rejects source-claimed properties; writes through catalog.ingest as manual.",
+      "touches": ["api.resource", "catalog.property_claim", "catalog.link_type"] }
+  ],
+  "tour": [
+    { "title": "One table for every kind",
+      "focus": ["catalog.kind", "catalog.link_type", "catalog.resource"],
+      "body": "<p>Every resource of every kind is a row in <code>catalog.resource</code>, with its properties in <code>jsonb</code>. Kinds and their links are rows too.</p><p>A table per kind would give typed columns, but every new kind would need a migration. The catalog's core requirement is that a new kind is a config change.</p><p>Inside, rows join by <code>id</code>. Everything outside uses <code>ref</code> (<code>component:checkout-service</code>).</p>" },
+    { "title": "Many sources, one resource",
+      "focus": ["catalog.source", "catalog.property_claim", "catalog.resource_source", "catalog.resource"],
+      "body": "<p>GitHub, PagerDuty, FinOps and a manual fact all describe checkout-service. Each source's last report is kept in <code>resource_source.observed</code>.</p><p><code>merge_properties</code> picks a winner per property using <code>property_claim</code> and writes the result to <code>resource.properties</code>, recording who won in <code>property_provenance</code>.</p>" },
+    { "title": "Links, per source, possibly dangling",
+      "focus": ["catalog.link", "catalog.link_type", "catalog.resource"],
+      "body": "<p>An edge is a row per asserting source. It exists while any source asserts it.</p><p>A workload labelled with a component that hasn't arrived yet is stored with <code>to_id</code> null. A trigger attaches it when the component appears.</p><p>When sources disagree on a single-valued link, every assertion is kept and one is <code>applied</code>.</p>" },
+    { "title": "Ownership is computed",
+      "focus": ["catalog.link", "catalog.link_type", "catalog.resource"],
+      "body": "<p><code>owner_paths</code> follows <b>grants</b> and <b>inherits</b> links: RDS instance → component → team. The result is stored in <code>effective_owners</code>.</p><p>When an ownership link changes, <code>recompute_owners</code> walks backwards and updates every dependent <b>in the same transaction</b>, so access is never stale.</p>" },
+    { "title": "Membership, flattened once",
+      "focus": ["catalog.link", "authz.group_user", "authz.user_team", "authz.platform_grant", "authz.user_role", "authz.kind_grant", "authz.user_kind_grant"],
+      "body": "<p>Groups stay nested as the identity provider asserts them. <code>refresh_memberships</code> flattens them into <code>user_team</code> whenever <code>members</code> or <code>backedBy</code> change.</p><p>Remove someone from a group, and the next delta sync takes away their access when it commits.</p>" },
+    { "title": "One view decides visibility",
+      "focus": ["api.resource", "authz.user_team", "authz.user_role", "authz.user_kind_grant", "catalog.resource", "api.link", "api.change"],
+      "body": "<p>The service role reads only <code>api.*</code>. <code>api.resource</code> holds the rule: rows where <code>effective_owners</code> overlaps the viewer's teams, or the kind is readable to them. Sensitive keys are redacted for everyone else.</p><p><code>api.link</code> and <code>api.change</code> are built on it, so edges and history never leak a hidden resource.</p>" },
+    { "title": "The change log is the outbox",
+      "focus": ["catalog.change_log", "catalog.consumer", "authz.fga_tuples", "api.change"],
+      "body": "<p>Every write appends a diff with actor and reason. Consumers (OpenFGA sync, scorecards, search) read it in <code>(tx_id, id)</code> order behind the oldest running transaction, so they never skip a row.</p><p><code>authz.fga_tuples</code> is the tuple set OpenFGA should hold; the sync consumer writes the difference.</p>" },
+    { "title": "Deletion is slow on purpose",
+      "focus": ["catalog.ingestion_run", "catalog.resource_source", "catalog.resource"],
+      "body": "<p>A completed full run marks what it didn't see as stale. Only when every source agrees, for longer than the kind's <code>stale_after</code>, does <code>sweep</code> tombstone the resource. A tombstone is restored if any source sees it again.</p><p>A full run far smaller than its baseline is held instead: a broken credential can't empty the catalog.</p>" }
+  ]
+}
+</script>
+
+<script>
+const D = JSON.parse(document.getElementById("schema-data").textContent);
+const T = Object.fromEntries(D.tables.map((t) => [t.id, t]));
+const F = Object.fromEntries(D.functions.map((f) => [f.id, f]));
+const SCHEMA_COLOR = { catalog: "var(--s-catalog)", authz: "var(--s-authz)", api: "var(--s-api)" };
+const SRC = "https://github.com/int32ltd/platform/blob/main/demos/data-store/sql/";
+const schemaOf = (id) => id.split(".")[0];
+const short = (ty) => ty.replace("timestamp with time zone", "timestamptz");
+const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+let sel = { type: "table", id: "catalog.resource" }, tab = "columns", step = 0, tourOn = true;
+const shown = { catalog: true, authz: true, api: true };
+
+/* ---------- layout: columns stacked top to bottom ---------- */
+const NW = 196, COLX = [24, 246, 468, 712, 956], HEAD = 26, ROW = 15, GAP = 20, TOP = 46;
+const keyCols = (t) => t.columns.filter((c) => c.key || c.fk || c.ref);
+function layout() {
+  const ys = COLX.map(() => TOP), P = {};
+  for (const t of D.tables) {
+    const rows = Math.min(keyCols(t).length, 5);
+    const h = HEAD + rows * ROW + 20;
+    P[t.id] = { x: COLX[t.col], y: ys[t.col], w: NW, h };
+    ys[t.col] += h + GAP;
+  }
+  return { P, height: Math.max(...ys) + 10 };
+}
+const { P, height: H } = layout();
+
+function anchor(a, b) {
+  const pa = P[a], pb = P[b];
+  const ca = { x: pa.x + pa.w / 2, y: pa.y + pa.h / 2 }, cb = { x: pb.x + pb.w / 2, y: pb.y + pb.h / 2 };
+  if (Math.abs(ca.x - cb.x) < 20) {          // same column: right-hand loop
+    const x = pa.x + pa.w;
+    return { d: `M${x} ${ca.y} C${x + 34} ${ca.y} ${x + 34} ${cb.y} ${x} ${cb.y}`, lx: x + 30, ly: (ca.y + cb.y) / 2 };
+  }
+  const right = cb.x > ca.x;
+  const x1 = right ? pa.x + pa.w : pa.x, x2 = right ? pb.x : pb.x + pb.w;
+  const dx = (x2 - x1) / 2;
+  return { d: `M${x1} ${ca.y} C${x1 + dx} ${ca.y} ${x2 - dx} ${cb.y} ${x2} ${cb.y}`, lx: (x1 + x2) / 2, ly: (ca.y + cb.y) / 2 - 3 };
+}
+
+/* ---------- what is highlighted ---------- */
+function focusSet() {
+  if (tourOn) return new Set(D.tour[step].focus);
+  if (sel.type === "table") {
+    const s = new Set([sel.id]);
+    D.edges.forEach((e) => { if (e.from === sel.id) s.add(e.to); if (e.to === sel.id) s.add(e.from); });
+    return s;
+  }
+  return new Set(F[sel.id].touches);
+}
+
+function renderGraph() {
+  const focus = focusSet();
+  const groups = [
+    { s: "catalog", x0: COLX[0] - 12, x1: COLX[2] + NW + 12 },
+    { s: "authz", x0: COLX[3] - 12, x1: COLX[3] + NW + 12 },
+    { s: "api", x0: COLX[4] - 12, x1: COLX[4] + NW + 12 },
+  ];
+  let svg = "";
+  for (const g of groups) {
+    if (!shown[g.s]) continue;
+    svg += `<g class="grp"><rect x="${g.x0}" y="12" width="${g.x1 - g.x0}" height="${H - 4}" rx="6" stroke="${SCHEMA_COLOR[g.s]}" opacity=".55"/>
+      <text x="${g.x0 + 12}" y="32" fill="${SCHEMA_COLOR[g.s]}">${g.s}</text>
+      <text x="${g.x0 + 12 + g.s.length * 8.6 + 8}" y="32" fill="var(--ink-3)" style="text-transform:none;letter-spacing:0">— ${esc(D.schemas[g.s].about)}</text></g>`;
+  }
+  for (const e of D.edges) {
+    if (!shown[schemaOf(e.from)] || !shown[schemaOf(e.to)]) continue;
+    const a = anchor(e.from, e.to);
+    const on = focus.has(e.from) && focus.has(e.to);
+    const cls = `edge ${e.type === "derived" ? "derived" : e.type === "logical" ? "logical" : ""} ${on ? "on" : "off"}`;
+    svg += `<path class="${cls}" d="${a.d}" marker-end="url(#ar-${e.type === "derived" ? "d" : "f"})"/>`;
+    if (on && e.label) svg += `<text class="elab" x="${a.lx}" y="${a.ly}" text-anchor="middle">${esc(e.label)}</text>`;
+  }
+  for (const t of D.tables) {
+    const s = schemaOf(t.id);
+    if (!shown[s]) continue;
+    const p = P[t.id], cols = keyCols(t), list = cols.slice(0, 5);
+    const isSel = sel.type === "table" && sel.id === t.id;
+    const cls = `node ${t.kind === "view" ? "view" : ""} ${isSel ? "sel" : focus.has(t.id) ? "hot" : focus.size ? "dim" : ""}`;
+    let rows = "";
+    list.forEach((c, i) => {
+      const y = p.y + HEAD + 14 + i * ROW;
+      const k = c.key || (c.fk ? "FK" : "ref");
+      const kc = k === "PK" ? "var(--accent-ink)" : k === "FK" ? "var(--warn)" : "var(--ink-3)";
+      rows += `<text class="ky" x="${p.x + 9}" y="${y}" fill="${kc}">${k}</text><text class="col" x="${p.x + 36}" y="${y}">${esc(c.name)}</text>`;
+    });
+    const extra = t.columns.length - list.length;
+    rows += `<text class="more" x="${p.x + 9}" y="${p.y + p.h - 8}">${extra > 0 ? `+ ${extra} more column${extra === 1 ? "" : "s"}` : `${t.columns.length} columns`}</text>`;
+    svg += `<g class="${cls}" data-id="${t.id}" tabindex="0" role="button" aria-label="${esc(t.id)}">
+      <rect class="box" x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" rx="3"/>
+      <rect class="hd" x="${p.x}" y="${p.y}" width="4" height="${p.h}" fill="${SCHEMA_COLOR[s]}"/>
+      <text class="nm" x="${p.x + 12}" y="${p.y + 17}">${esc(t.id.split(".")[1])}</text>
+      <text class="kd" x="${p.x + p.w - 8}" y="${p.y + 16}" text-anchor="end">${t.kind}</text>
+      <line x1="${p.x}" y1="${p.y + HEAD}" x2="${p.x + p.w}" y2="${p.y + HEAD}" stroke="var(--line-soft)"/>
+      ${rows}</g>`;
+  }
+  const el = document.getElementById("er");
+  el.setAttribute("viewBox", `0 0 1170 ${H + 14}`);
+  el.innerHTML = `<defs>
+    <marker id="ar-f" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="5" markerHeight="5" orient="auto"><path d="M0.5 1 L7 4 L0.5 7 z" fill="var(--ink-3)"/></marker>
+    <marker id="ar-d" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="5" markerHeight="5" orient="auto"><path d="M0.5 1 L7 4 L0.5 7 z" fill="var(--accent)"/></marker>
+  </defs>${svg}`;
+  el.querySelectorAll(".node").forEach((n) => {
+    const go = () => selectTable(n.dataset.id);
+    n.addEventListener("click", go);
+    n.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); go(); } });
+  });
+}
+
+/* ---------- inspector ---------- */
+const chip = (id) => T[id] ? `<button class="chip" data-t="${id}">${esc(id)}</button>`
+                           : F[id] ? `<button class="chip fn" data-f="${id}">${esc(id)}</button>` : `<span class="chip">${esc(id)}</span>`;
+const chips = (ids) => ids.length ? `<div class="chips">${ids.map(chip).join("")}</div>` : `<p class="empty">—</p>`;
+
+function tablePanes(t) {
+  const usedBy = D.functions.filter((f) => f.touches.includes(t.id)).map((f) => f.id);
+  const keys = (c) => (c.key ? `<span class="k ${c.key === "PK" ? "pk" : ""}">${c.key}</span>` : "")
+                    + (c.fk ? `<span class="k fk">FK</span>` : "") + (c.ref ? `<span class="k">ref</span>` : "");
+  return {
+    columns: `<table class="cols"><thead><tr><th>Column</th><th>Type</th></tr></thead><tbody>${t.columns.map((c) =>
+      `<tr><td class="cn">${esc(c.name)}${keys(c)}${c.note || c.fk || c.ref ? `<div class="note">${c.note ? esc(c.note) : ""}${c.fk ? `${c.note ? " · " : ""}→ ${esc(c.fk)}` : ""}${c.ref ? `${c.note ? " · " : ""}→ ${esc(c.ref)} (no FK)` : ""}</div>` : ""}</td><td class="ct">${esc(short(c.type))}</td></tr>`).join("")}</tbody></table>`,
+    logic: `<div class="pane">${t.rules.length ? `<h4>How it works</h4><ul class="rules">${t.rules.map((r) => `<li>${r}</li>`).join("")}</ul>` : ""}
+      <h4>Written by</h4>${chips(t.writtenBy)}
+      <h4>Read by</h4>${chips(t.readBy)}
+      <h4>Every function that touches it</h4>${chips(usedBy)}</div>`,
+    indexes: t.indexes.length ? `<div class="pane"><ul class="rules">${t.indexes.map((i) => `<li><code>${esc(i)}</code></li>`).join("")}</ul></div>`
+                              : `<p class="empty">${t.kind === "view" ? "A view: it uses the indexes of the tables it reads." : "None."}</p>`,
+    source: `<div class="pane src"><p>Defined in <a href="${SRC}${t.file}">sql/${t.file}</a>.</p><p>Spec: <a href="https://github.com/int32ltd/platform/blob/main/docs/data-store/reference.md">reference.md</a> · rationale: <a href="https://github.com/int32ltd/platform/blob/main/docs/data-store/explanation.md">explanation.md</a></p></div>`,
+  };
+}
+
+function renderInspector() {
+  const tabsEl = document.getElementById("tabs"), panes = document.getElementById("panes");
+  if (sel.type === "table") {
+    const t = T[sel.id], s = schemaOf(t.id);
+    document.getElementById("iref").innerHTML = `<span class="badge" style="background:${SCHEMA_COLOR[s]}">${s}</span>${t.kind}`;
+    document.getElementById("ititle").textContent = t.id;
+    document.getElementById("ipurpose").textContent = t.purpose;
+    const P2 = tablePanes(t), TABS = [["columns", "Columns"], ["logic", "Logic"], ["indexes", "Indexes"], ["source", "Source"]];
+    if (!P2[tab]) tab = "columns";
+    tabsEl.innerHTML = TABS.map(([k, l]) => `<button role="tab" aria-selected="${k === tab}" data-tab="${k}">${l}</button>`).join("");
+    tabsEl.style.display = "";
+    panes.innerHTML = P2[tab];
+  } else {
+    const f = F[sel.id], s = schemaOf(f.id);
+    document.getElementById("iref").innerHTML = `<span class="badge" style="background:${SCHEMA_COLOR[s]}">${s}</span>function`;
+    document.getElementById("ititle").textContent = f.id;
+    document.getElementById("ipurpose").textContent = "";
+    tabsEl.style.display = "none";
+    panes.innerHTML = `<div class="pane"><pre class="sig">${esc(f.sig)}</pre><p>${esc(f.does)}</p>
+      <h4>Tables and views it touches</h4>${chips(f.touches)}
+      <p class="src">Defined in <a href="${SRC}${f.file}">sql/${f.file}</a>.</p></div>`;
+  }
+  tabsEl.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => { tab = b.dataset.tab; renderInspector(); }));
+  panes.querySelectorAll("[data-t]").forEach((b) => b.addEventListener("click", () => selectTable(b.dataset.t)));
+  panes.querySelectorAll("[data-f]").forEach((b) => b.addEventListener("click", () => { sel = { type: "fn", id: b.dataset.f }; tourOn = false; render(); }));
+}
+
+/* ---------- tour ---------- */
+function renderTour() {
+  const s = D.tour[step];
+  document.getElementById("tour").innerHTML = `
+    <div class="tour-head"><span class="num">${String(step + 1).padStart(2, "0")}</span><h3>${esc(s.title)}</h3></div>
+    <div class="tour-body">${s.body}</div>
+    <div class="tour-nav">
+      <button class="btn sm" id="t-prev" ${step === 0 ? "disabled" : ""}>Back</button>
+      <button class="btn sm primary" id="t-next" ${step === D.tour.length - 1 ? "disabled" : ""}>Next</button>
+      ${tourOn ? "" : `<button class="btn sm" id="t-resume">Show step</button>`}
+      <span class="pos">${step + 1} / ${D.tour.length}</span>
+    </div>`;
+  document.getElementById("tour-list").innerHTML = D.tour.map((t, i) =>
+    `<li><button data-step="${i}" aria-current="${tourOn && i === step}"><span class="n">${i + 1}</span>${esc(t.title)}</button></li>`).join("");
+  const goto = (i) => { step = i; tourOn = true; sel = { type: "table", id: D.tour[i].focus[0] }; tab = "logic"; render(); };
+  document.getElementById("t-prev").onclick = () => goto(step - 1);
+  document.getElementById("t-next").onclick = () => goto(step + 1);
+  const r = document.getElementById("t-resume"); if (r) r.onclick = () => goto(step);
+  document.querySelectorAll("#tour-list [data-step]").forEach((b) => b.addEventListener("click", () => goto(+b.dataset.step)));
+}
+
+function renderSchemas() {
+  const el = document.getElementById("schemas");
+  el.innerHTML = Object.keys(D.schemas).map((s) =>
+    `<button aria-pressed="${shown[s]}" data-s="${s}"><span class="sw" style="background:${SCHEMA_COLOR[s]}"></span>${s}</button>`).join("");
+  el.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => {
+    const s = b.dataset.s;
+    if (shown[s] && Object.values(shown).filter(Boolean).length === 1) return;
+    shown[s] = !shown[s]; render();
+  }));
+}
+
+function selectTable(id) { sel = { type: "table", id }; tourOn = false; render(); }
+function render() { renderSchemas(); renderTour(); renderGraph(); renderInspector(); }
+tab = "logic";
+render();
+</script>
+</html>

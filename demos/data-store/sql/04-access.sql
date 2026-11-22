@@ -6,6 +6,10 @@
 -- catalog_api has no privilege on catalog.* or authz.*. Everything it reads
 -- goes through api.* views owned by catalog_owner, and every one of them is
 -- built on api.resource, so the visibility rule exists in exactly one place.
+--
+-- Changing the schema? Update demos/data-store/index.html (the schema page)
+-- and docs/data-store/reference.md in the same change. ./demo.sh test fails
+-- while the page and the database disagree.
 -- =============================================================================
 
 set role catalog_owner;

@@ -2,6 +2,10 @@
 -- 03-write.sql — the write path. Every fact enters through these functions,
 -- so validation, merging, ownership recompute and the change log happen in
 -- the same transaction as the write.
+--
+-- Changing the schema? Update demos/data-store/index.html (the schema page)
+-- and docs/data-store/reference.md in the same change. ./demo.sh test fails
+-- while the page and the database disagree.
 -- =============================================================================
 
 set role catalog_owner;
