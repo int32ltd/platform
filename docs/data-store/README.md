@@ -21,8 +21,9 @@ in its own `catalog-data-store` namespace. `./demo.sh up && ./demo.sh walkthroug
 For a visual guide, open the
 [schema page](../../demos/data-store/index.html) and its companion,
 [How it works](../../demos/data-store/flows.html) (worked scenarios: define a
-kind, create an instance, apply permissions, move ownership), in a browser.
-The schema page shows every table, view and function, what writes each one,
+kind, create an instance, apply permissions, move ownership), in a browser
+(on the local environment, `./demo.sh pages` serves them at
+https://catalog-data-store.dev.test/data-store/). The schema page shows every table, view and function, what writes each one,
 and the logic behind it. Both must be kept current with the schema (see
 [CONTRIBUTING](../../CONTRIBUTING.md#keep-the-data-store-schema-page-current)),
 and `./demo.sh test` fails while it is out of date.

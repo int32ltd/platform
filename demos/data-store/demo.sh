@@ -16,6 +16,8 @@
 #                           the database has, and that flows.html only names
 #                           objects that exist, and that the model in the docs
 #                           is fga/model.fga
+#   ./demo.sh pages         localenv only: build the demo pages image and serve
+#                           them at https://catalog-data-store.dev.test
 #   ./demo.sh psql          interactive psql in the demo database, as its owner
 #   ./demo.sh down          remove the demo workloads (localenv: the database
 #                           stays; standalone: the namespace is deleted)
@@ -250,15 +252,22 @@ case "${1:-}" in
   test)        run_sql test.sql && check_page && python3 -I fga/drift.py check ;;
   drift)       shift; python3 -I fga/drift.py check "$@" ;;
   check-page)  check_page ;;
+  pages)
+    [ "$MODE" = localenv ] || { echo "pages needs the local environment (localenv)" >&2; exit 1; }
+    localenv apps apply "$PWD" >/dev/null    # includes the HTTPS route (expose in .localenv.yaml)
+    localenv apps image "$PWD" >/dev/null    # Dockerfile, context demos/: the static pages
+    localenv apps deploy "$PWD" >/dev/null   # pages.yaml, pinned to the pushed digest
+    echo "demo pages: https://catalog-data-store.dev.test (this demo: /data-store/)"
+    ;;
   psql)        kubectl -n "$NS" exec -it deploy/psql -- psql ;;
   down)
     if [ "$MODE" = localenv ]; then
-      kubectl -n "$NS" delete -f k8s.yaml --ignore-not-found
+      kubectl -n "$NS" delete -f k8s.yaml -f pages.yaml --ignore-not-found
       echo "database $OWNER and its roles are kept. To remove the namespace, database and roles:"
       echo "  localenv apps delete $APP    (drops the data)"
     else
       kubectl delete namespace "$NS"
     fi
     ;;
-  *)           sed -n '2,32p' "$0"; exit 1 ;;
+  *)           sed -n '2,34p' "$0"; exit 1 ;;
 esac

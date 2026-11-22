@@ -8,3 +8,16 @@ database: true
 # create roles on the shared cluster, so localenv creates these NOLOGIN roles,
 # catalog_data_store_<role>, and lets the owner SET ROLE to them.
 databaseRoles: [api, ingest, consumer, auditor]
+# The demo pages (schema page, How it works, the demos landing page) at
+# https://catalog-data-store.dev.test: `./demo.sh pages` builds the static
+# image from demos/ and deploys pages.yaml.
+expose:
+  - host: catalog-data-store
+    service: pages
+    port: 80
+image:
+  context: ..
+  dockerfile: Dockerfile
+deploy:
+  manifests:
+    - pages.yaml
