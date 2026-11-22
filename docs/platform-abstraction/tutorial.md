@@ -10,6 +10,11 @@ Everything runs locally in
 [`demos/platform-abstraction/`](../../demos/platform-abstraction/). Nothing real
 is installed or called. Vendor API calls are printed, not sent.
 
+If you'd rather not install anything, open
+[`demos/platform-abstraction/index.html`](../../demos/platform-abstraction/index.html)
+in a browser. Its guided tour follows the same steps as this tutorial, and you
+edit the same files in the page instead of in an editor.
+
 ## Before you start
 
 You need Python 3 and one package:

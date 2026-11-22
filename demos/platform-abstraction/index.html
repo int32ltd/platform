@@ -1,0 +1,1171 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Platform Abstraction Flow</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root {
+    color-scheme: light;
+    --ground: #eef1f5;
+    --surface: #ffffff;
+    --surface-2: #f6f8fa;
+    --surface-3: #e9edf2;
+    --line: #d3dae2;
+    --line-soft: #e3e8ee;
+    --ink: #121820;
+    --ink-2: #4a5663;
+    --ink-3: #78838f;
+    --accent: #0d7a84;
+    --accent-ink: #085a62;
+    --accent-soft: #d6eced;
+    --owned: #1d7340;
+    --owned-soft: #dcefe3;
+    --warn: #9c5a07;
+    --warn-soft: #fbeedb;
+    --deny: #ab382c;
+    --deny-soft: #fae6e3;
+    --vendor: #6b4ea8;
+    --vendor-soft: #ece6f7;
+    --shadow: 0 1px 2px rgba(18, 24, 32, .06), 0 8px 24px -16px rgba(18, 24, 32, .25);
+    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans: "IBM Plex Sans", system-ui, -apple-system, Segoe UI, sans-serif;
+    --cond: "IBM Plex Sans Condensed", "IBM Plex Sans", system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --ground: #0e1319;
+      --surface: #161c24;
+      --surface-2: #1b222b;
+      --surface-3: #232b35;
+      --line: #2e3844;
+      --line-soft: #242c36;
+      --ink: #e7ecf2;
+      --ink-2: #a7b2bf;
+      --ink-3: #7c8794;
+      --accent: #3fb3bd;
+      --accent-ink: #7fd3da;
+      --accent-soft: #15353a;
+      --owned: #5cbd83;
+      --owned-soft: #17301f;
+      --warn: #e0a95c;
+      --warn-soft: #3a2d15;
+      --deny: #e8897c;
+      --deny-soft: #3a1f1b;
+      --vendor: #b49ae8;
+      --vendor-soft: #2a2140;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 10px 30px -18px rgba(0, 0, 0, .8);
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --ground: #0e1319;
+    --surface: #161c24;
+    --surface-2: #1b222b;
+    --surface-3: #232b35;
+    --line: #2e3844;
+    --line-soft: #242c36;
+    --ink: #e7ecf2;
+    --ink-2: #a7b2bf;
+    --ink-3: #7c8794;
+    --accent: #3fb3bd;
+    --accent-ink: #7fd3da;
+    --accent-soft: #15353a;
+    --owned: #5cbd83;
+    --owned-soft: #17301f;
+    --warn: #e0a95c;
+    --warn-soft: #3a2d15;
+    --deny: #e8897c;
+    --deny-soft: #3a1f1b;
+    --vendor: #b49ae8;
+    --vendor-soft: #2a2140;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 10px 30px -18px rgba(0, 0, 0, .8);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 13px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3, h4 { margin: 0; text-wrap: balance; }
+  button { font: inherit; color: inherit; }
+  code, .mono { font-family: var(--mono); }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    font-weight: 500;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  /* ---------- shell ---------- */
+  .app {
+    display: grid;
+    grid-template-columns: 268px minmax(0, 1fr) 400px;
+    grid-template-rows: auto minmax(0, 1fr);
+    height: 100vh;
+    min-height: 680px;
+  }
+  .app > * { min-width: 0; }
+  .scroll-x { overflow-x: auto; }
+  header.top {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+    padding: 12px 20px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+  }
+  .brand { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .brand h1 { font-family: var(--cond); font-size: 19px; font-weight: 700; letter-spacing: -.005em; }
+  .brand .sub { font-size: 11.5px; color: var(--ink-3); }
+  .brand .sub a { color: var(--accent-ink); text-decoration: none; border-bottom: 1px solid var(--accent-soft); }
+  .top-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+
+  .btn {
+    padding: 6px 12px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background .12s, border-color .12s;
+  }
+  .btn:hover:not(:disabled) { background: var(--surface-2); border-color: var(--ink-3); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 500; }
+  :root[data-theme="dark"] .btn.primary { color: #06181a; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .btn.primary { color: #06181a; } }
+  .btn.primary:hover:not(:disabled) { background: var(--accent-ink); border-color: var(--accent-ink); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn.sm { padding: 3px 8px; font-size: 11px; }
+  .btn.xs { padding: 1px 6px; font-size: 10.5px; font-family: var(--mono); }
+  .btn.ghost { border-color: transparent; background: transparent; color: var(--ink-3); }
+  .btn.ghost:hover:not(:disabled) { color: var(--deny); border-color: var(--line); }
+
+  input[type="text"], select {
+    font: inherit;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    padding: 4px 6px;
+    background: var(--surface);
+    color: var(--ink);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    min-width: 0;
+  }
+  input[type="text"]:focus, select:focus { border-color: var(--accent); outline: none; }
+
+  /* ---------- rail ---------- */
+  .rail { background: var(--surface); border-right: 1px solid var(--line); overflow-y: auto; padding: 0 0 24px; }
+  .rail section { padding: 14px 16px; border-bottom: 1px solid var(--line-soft); }
+  .rail h2 { font-family: var(--cond); font-size: 13px; font-weight: 700; letter-spacing: .01em; margin-bottom: 8px; }
+
+  .tour-step { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+  .tour-step .num {
+    font-family: var(--mono); font-size: 10px; font-weight: 600;
+    color: var(--accent-ink); background: var(--accent-soft);
+    padding: 1px 5px; border-radius: 2px;
+  }
+  .tour-body { color: var(--ink-2); font-size: 12.5px; }
+  .tour-body b { color: var(--ink); font-weight: 600; }
+  .tour-body code { font-size: 11.5px; color: var(--accent-ink); }
+  .tour-nav { display: flex; gap: 6px; align-items: center; margin-top: 10px; }
+  .tour-nav .count { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); margin-left: auto; }
+
+  .flags { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 8px; align-items: center; }
+  .flags label { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); }
+  .cli {
+    margin-top: 10px; padding: 8px 9px;
+    background: var(--surface-2); border: 1px solid var(--line-soft); border-radius: 3px;
+    font-family: var(--mono); font-size: 10.5px; line-height: 1.55; color: var(--ink-2);
+    white-space: pre; overflow-x: auto;
+  }
+  .cli .p { color: var(--ink-3); user-select: none; }
+
+  .stats { display: grid; gap: 1px; background: var(--line-soft); border: 1px solid var(--line-soft); }
+  .stat { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; background: var(--surface); padding: 6px 9px; }
+  .stat .k { font-size: 11.5px; color: var(--ink-2); }
+  .stat .v { font-family: var(--mono); font-size: 11.5px; font-weight: 500; text-align: right; word-break: break-word; }
+  .stat .v.warn { color: var(--warn); }
+  .stat .v.ok { color: var(--owned); }
+  .stat .v.bad { color: var(--deny); }
+  .stat .v.vendor { color: var(--vendor); }
+  .note { font-size: 11.5px; color: var(--ink-3); }
+  .note b { color: var(--ink-2); }
+  .note code { color: var(--accent-ink); }
+
+  /* ---------- pipeline ---------- */
+  .canvas { overflow: auto; padding: 22px 28px 40px; background: var(--ground); }
+  .pipe { max-width: 760px; margin: 0 auto; }
+  .card {
+    position: relative;
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    gap: 12px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--line);
+    border-radius: 3px;
+    padding: 12px 14px 12px 12px;
+    box-shadow: var(--shadow);
+    cursor: pointer;
+    transition: border-color .12s, opacity .2s;
+  }
+  .card:hover { border-color: var(--ink-3); }
+  .card.ok { border-left-color: var(--owned); }
+  .card.fail { border-left-color: var(--deny); }
+  .card.warn { border-left-color: var(--warn); }
+  .card.skip { opacity: .45; box-shadow: none; background: var(--surface-2); }
+  .card.vendor.ok { border-left-color: var(--vendor); }
+  .card.sel { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .card.changed { animation: flash 1.2s ease-out 1; }
+  @keyframes flash { 0%, 35% { background: var(--accent-soft); } 100% { background: var(--surface); } }
+  @media (prefers-reduced-motion: reduce) { .card.changed { animation: none; } }
+  .card .n {
+    width: 34px; height: 34px; border-radius: 3px;
+    display: grid; place-items: center;
+    font-family: var(--cond); font-weight: 700; font-size: 17px;
+    background: var(--surface-3); color: var(--ink-2);
+  }
+  .card.ok .n { background: var(--owned-soft); color: var(--owned); }
+  .card.vendor.ok .n { background: var(--vendor-soft); color: var(--vendor); }
+  .card.fail .n { background: var(--deny-soft); color: var(--deny); }
+  .card.warn .n { background: var(--warn-soft); color: var(--warn); }
+  .card .hd { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .card h3 { font-family: var(--cond); font-size: 15px; font-weight: 700; }
+  .card .stands { font-family: var(--mono); font-size: 10px; color: var(--ink-3); }
+  .card .file { font-family: var(--mono); font-size: 10px; color: var(--accent-ink); }
+  .card .bd { margin-top: 6px; font-size: 12px; color: var(--ink-2); }
+  .card .bd > *:last-child { margin-bottom: 0; }
+
+  .status {
+    margin-left: auto;
+    font-family: var(--mono); font-size: 9.5px; font-weight: 600; letter-spacing: .08em;
+    padding: 1px 6px; border-radius: 2px; border: 1px solid currentColor;
+  }
+  .status.ok { color: var(--owned); }
+  .status.fail { color: var(--deny); background: var(--deny-soft); }
+  .status.warn { color: var(--warn); background: var(--warn-soft); }
+  .status.skip { color: var(--ink-3); }
+  .status.vendor { color: var(--vendor); }
+
+  .conn { height: 22px; display: flex; justify-content: flex-start; padding-left: 28px; }
+  .conn svg { overflow: visible; }
+  .conn line { stroke: var(--ink-3); stroke-width: 1.4; opacity: .5; }
+  .conn.hot line { stroke: var(--accent); opacity: 1; stroke-width: 2; stroke-dasharray: 5 3; animation: flow 1s linear infinite; }
+  .conn.hot polygon { fill: var(--accent); }
+  .conn polygon { fill: var(--ink-3); opacity: .6; }
+  .conn.hot polygon { opacity: 1; }
+  @keyframes flow { to { stroke-dashoffset: -16; } }
+  @media (prefers-reduced-motion: reduce) { .conn.hot line { animation: none; } }
+
+  .divider {
+    display: flex; align-items: center; gap: 10px;
+    margin: 2px 0; padding-left: 4px;
+    font-family: var(--mono); font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase;
+  }
+  .divider::before, .divider::after { content: ""; flex: 1; border-top: 1px dashed var(--vendor); opacity: .6; }
+  .divider span { color: var(--vendor); }
+  .divider .up { color: var(--owned); }
+
+  .packet {
+    display: inline-flex; gap: 6px; flex-wrap: wrap;
+    font-family: var(--mono); font-size: 10.5px;
+  }
+  .tag { font-family: var(--mono); font-size: 10.5px; padding: 1px 5px; border-radius: 2px; background: var(--surface-3); color: var(--ink); white-space: nowrap; }
+  .tag.ok { background: var(--owned-soft); color: var(--owned); }
+  .tag.bad { background: var(--deny-soft); color: var(--deny); }
+  .tag.warn { background: var(--warn-soft); color: var(--warn); }
+  .tag.vendor { background: var(--vendor-soft); color: var(--vendor); }
+  .tag.dim { background: transparent; border: 1px dashed var(--line); color: var(--ink-3); }
+
+  .verdict { font-family: var(--mono); font-size: 11px; margin-top: 6px; padding: 5px 8px; border-radius: 2px; word-break: break-word; }
+  .verdict.ok { background: var(--owned-soft); color: var(--owned); }
+  .verdict.fail { background: var(--deny-soft); color: var(--deny); }
+  .verdict.warn { background: var(--warn-soft); color: var(--warn); }
+
+  .vrow { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 8px; align-items: baseline; padding: 3px 0; border-bottom: 1px dotted var(--line-soft); }
+  .vrow:last-child { border-bottom: 0; }
+  .vrow .vk { font-family: var(--mono); font-size: 11px; color: var(--ink); }
+  .vrow .vv { display: flex; gap: 4px; flex-wrap: wrap; }
+
+  .chain { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-family: var(--mono); font-size: 11px; margin: 4px 0 8px; }
+  .chain .hop { color: var(--accent-ink); font-size: 10px; }
+  .chain .nd { padding: 2px 6px; border: 1px solid var(--line); border-radius: 2px; background: var(--surface-2); }
+  .chain .nd.bad { border-color: var(--deny); color: var(--deny); background: var(--deny-soft); }
+  .chain .nd.ok { border-color: var(--owned); color: var(--owned); }
+  .checks { display: grid; gap: 2px; }
+  .ck { display: flex; gap: 7px; align-items: baseline; font-size: 11.5px; }
+  .ck .m { font-family: var(--mono); font-weight: 600; width: 12px; text-align: center; flex: none; }
+  .ck.ok .m { color: var(--owned); }
+  .ck.fail .m { color: var(--deny); }
+  .ck.fail { color: var(--ink); }
+  .ck.skip { color: var(--ink-3); }
+  .ck.skip .m { color: var(--ink-3); }
+
+  table.grid { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+  table.grid th, table.grid td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--line-soft); vertical-align: middle; }
+  table.grid th { font-family: var(--mono); font-size: 9.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); font-weight: 500; }
+  table.grid td.mono { font-size: 11px; }
+  table.grid tr.hit { background: var(--vendor-soft); }
+  table.grid tr.hit td { color: var(--ink); }
+  table.grid tr.after td { color: var(--ink-3); }
+  .yes { color: var(--owned); font-family: var(--mono); font-weight: 600; }
+  .no { color: var(--ink-3); font-family: var(--mono); }
+
+  .call { border: 1px solid var(--line-soft); border-left: 2px solid var(--vendor); background: var(--surface-2); padding: 6px 9px; margin-bottom: 6px; font-family: var(--mono); font-size: 10.5px; line-height: 1.6; word-break: break-all; }
+  .call:last-child { margin-bottom: 0; }
+  .call .meth { color: var(--vendor); font-weight: 600; }
+  .call .body { color: var(--ink-2); }
+  .call .vb { color: var(--ink-3); font-size: 9.5px; letter-spacing: .06em; text-transform: uppercase; }
+  .call.err { border-left-color: var(--deny); }
+  .call.err .meth { color: var(--deny); }
+  .call.drop { border-left-color: var(--warn); }
+  .call.drop .meth { color: var(--warn); }
+
+  /* ---------- inspector ---------- */
+  .inspector { background: var(--surface); border-left: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+  .insp-head { padding: 12px 16px 0; }
+  .ref { font-family: var(--mono); font-size: 12px; color: var(--accent-ink); word-break: break-all; }
+  .insp-title { font-family: var(--cond); font-size: 17px; font-weight: 700; margin: 2px 0 2px; }
+  .insp-sub { font-size: 11.5px; color: var(--ink-3); margin-bottom: 8px; }
+  .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); padding: 0 12px; overflow-x: auto; }
+  .tabs button {
+    padding: 7px 6px 6px; background: none; border: 0; border-bottom: 2px solid transparent;
+    font-family: var(--mono); font-size: 10px; letter-spacing: .03em; text-transform: uppercase;
+    color: var(--ink-3); cursor: pointer; white-space: nowrap;
+  }
+  .tabs button:hover { color: var(--ink); }
+  .tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+  .tabs button .dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--warn); margin-left: 4px; vertical-align: middle; }
+  .panes { overflow-y: auto; padding: 14px 16px 28px; flex: 1; min-height: 0; }
+
+  .block { margin-bottom: 16px; }
+  .block > h3 { font-family: var(--cond); font-size: 12.5px; font-weight: 700; margin-bottom: 6px; display: flex; align-items: baseline; gap: 8px; }
+  .block > h3 .file { font-family: var(--mono); font-size: 10px; font-weight: 400; color: var(--accent-ink); }
+
+  .ed { border: 1px solid var(--line); border-radius: 3px; margin-bottom: 8px; }
+  .ed-h { display: flex; align-items: center; gap: 6px; padding: 5px 8px; background: var(--surface-2); border-bottom: 1px solid var(--line-soft); }
+  .ed-h .vn { font-family: var(--mono); font-size: 11.5px; font-weight: 600; }
+  .ed-h .sp { margin-left: auto; }
+  .ed-b { padding: 6px 8px; display: grid; gap: 5px; }
+  .kv { display: grid; grid-template-columns: 92px minmax(0, 1fr) auto; gap: 6px; align-items: center; }
+  .kv .k { font-family: var(--mono); font-size: 11px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; }
+  .addrow { display: flex; gap: 6px; }
+  .addrow input { flex: 1; }
+  .fchip { display: inline-flex; align-items: center; gap: 4px; margin: 0 4px 4px 0; }
+  .fchip .fn { font-family: var(--mono); font-size: 11px; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 3px; overflow: hidden; }
+  .seg button { padding: 1px 6px; background: var(--surface); border: 0; border-right: 1px solid var(--line-soft); font-family: var(--mono); font-size: 9.5px; cursor: pointer; }
+  .seg button:last-child { border-right: 0; }
+  .seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+  .fieldrow { display: flex; align-items: center; gap: 6px; padding: 3px 0; border-bottom: 1px dotted var(--line-soft); }
+  .fieldrow:last-child { border-bottom: 0; }
+  .fieldrow .fn { font-family: var(--mono); font-size: 11px; flex: 1; }
+  .tries { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; margin-bottom: 10px; }
+  .tries .eyebrow { margin-right: 2px; }
+  .brow td input[type="text"] { width: 100%; }
+  .brow .ord { display: flex; gap: 2px; }
+  .chk { display: inline-flex; align-items: center; gap: 5px; font-family: var(--mono); font-size: 11px; cursor: pointer; }
+
+  pre.yaml { margin: 0; padding: 8px 10px; background: var(--surface-2); border: 1px solid var(--line-soft); border-radius: 3px; font-family: var(--mono); font-size: 11px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+  pre.yaml .ln { display: block; padding: 0 4px; margin: 0 -4px; }
+  pre.yaml .ln.chg { background: color-mix(in srgb, var(--warn) 18%, transparent); }
+  pre.yaml .ln.vnd { background: var(--vendor-soft); }
+  pre.yaml .cm { color: var(--ink-3); font-style: italic; }
+  pre.term { margin: 0; padding: 10px 12px; background: #0f151b; color: #d4dce4; border-radius: 3px; font-family: var(--mono); font-size: 10.5px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+  pre.term .h { color: #7fd3da; }
+  pre.term .bad { color: #f19a8e; }
+  pre.term .good { color: #7ed6a1; }
+  pre.term .pr { color: #78838f; }
+  .warnbox { border: 1px solid var(--warn); border-left-width: 3px; background: var(--warn-soft); padding: 7px 9px; font-size: 11.5px; color: var(--ink); margin-bottom: 10px; }
+  .infobox { border: 1px solid var(--line); border-left: 3px solid var(--accent); background: var(--surface-2); padding: 7px 9px; font-size: 11.5px; color: var(--ink-2); margin-bottom: 10px; }
+  .infobox code, .warnbox code { color: var(--accent-ink); }
+
+  @media (max-width: 1180px) {
+    .app { grid-template-columns: 248px minmax(0, 1fr); grid-template-rows: auto minmax(420px, 1fr) auto; height: auto; }
+    .inspector { grid-column: 1 / -1; border-left: 0; border-top: 1px solid var(--line); }
+    .panes { max-height: none; }
+  }
+  @media (max-width: 760px) {
+    .app { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; min-height: 0; }
+    header.top { padding: 12px 16px; }
+    .rail { border-right: 0; border-bottom: 1px solid var(--line); overflow: visible; padding-bottom: 0; }
+    .canvas { padding: 16px; overflow: visible; }
+    .card { grid-template-columns: 28px minmax(0, 1fr); gap: 10px; }
+    .card .n { width: 28px; height: 28px; font-size: 15px; }
+    .conn { padding-left: 25px; }
+    .status { margin-left: 0; }
+    .vrow { grid-template-columns: 1fr; gap: 2px; }
+    .kv { grid-template-columns: 76px minmax(0, 1fr) auto; }
+  }
+</style>
+
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <h1>Platform Abstraction Flow</h1>
+      <div class="sub">One vendor-neutral request through every layer of the <a href="../../docs/platform-abstraction/reference.md">platform abstraction design</a>. Edit any file and the run recomputes.</div>
+    </div>
+    <div class="top-actions">
+      <button class="btn" id="reset">Reset</button>
+    </div>
+  </header>
+
+  <aside class="rail">
+    <section>
+      <h2>Guided tour</h2>
+      <div id="tour"></div>
+    </section>
+    <section>
+      <h2>Run as</h2>
+      <div class="note" style="margin-bottom:8px">The flags a developer passes. Only the binding policy uses tenant and environment.</div>
+      <div class="flags" id="flags"></div>
+      <div class="cli" id="cli"></div>
+    </section>
+    <section style="border-bottom:0">
+      <h2>What changed</h2>
+      <div class="stats" id="stats"></div>
+    </section>
+  </aside>
+
+  <main class="canvas"><div class="pipe" id="pipe"></div></main>
+
+  <aside class="inspector">
+    <div class="insp-head">
+      <div class="ref" id="iref"></div>
+      <div class="insp-title" id="ititle"></div>
+      <div class="insp-sub" id="isub"></div>
+    </div>
+    <div class="tabs" id="tabs" role="tablist"></div>
+    <div class="panes" id="panes"></div>
+  </aside>
+</div>
+
+<script>
+/* ===========================================================================
+   A browser port of demos/platform-abstraction/ (platform.py + layers/*.py).
+   The logic below mirrors those modules one to one so the browser and the CLI
+   give the same answer for the same files. Nothing is sent anywhere.
+   =========================================================================== */
+
+const PATHS = {
+  request: "requests/checkout-latency.yaml",
+  contract: "contracts/observability.yaml",
+  components: "catalog/components.yaml",
+  teams: "catalog/teams.yaml",
+  bindings: "bindings/observability.yaml",
+};
+const VENDORS = ["datadog", "dynatrace", "new-relic"];
+const VENDOR_RE = /datadog|dynatrace|new-?relic/i;
+
+/* ---------- seed: the YAML files in this folder, as data ---------- */
+function seed() {
+  return {
+    request: {
+      capability: "observability",
+      verbs: [
+        { verb: "emit-metric", fields: [["name", "request_latency_ms"], ["type", "histogram"]] },
+        { verb: "define-alert", fields: [["metric", "request_latency_ms"], ["condition", "p99 > 300ms"], ["severity", "page"]] },
+      ],
+    },
+    contract: {
+      name: "observability",
+      version: "v1",
+      verbs: {
+        "emit-metric": { required: ["name", "type"], optional: ["labels"] },
+        "define-alert": { required: ["metric", "condition", "severity"], optional: [] },
+      },
+    },
+    components: { "checkout-service": { owner: "team-payments", bindings: ["observability"] } },
+    teams: { "team-payments": ["observability"], "team-checkout": ["observability"], "team-growth": [] },
+    bindings: [
+      { tenant: "*", environment: "production", provider: "datadog" },
+      { tenant: "my-org", environment: "*", provider: "dynatrace" },
+      { tenant: "other-org", environment: "*", provider: "datadog" },
+      { tenant: "*", environment: "*", provider: "datadog" },
+    ],
+    run: { component: "checkout-service", team: "team-payments", tenant: "team-growth", environment: "production" },
+  };
+}
+
+/* ---------- small helpers ---------- */
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const pyStr = (s) => `'${String(s).replace(/\\/g, "\\\\").replace(/'/g, "\\'")}'`;
+const pyList = (xs) => `[${xs.map(pyStr).join(", ")}]`;
+const pySorted = (xs) => [...xs].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+const fieldsObj = (fields) => Object.fromEntries(fields);
+function pyRepr(req) {
+  const parts = [`'capability': ${pyStr(req.capability)}`];
+  for (const v of req.verbs) parts.push(`${pyStr(v.verb)}: {${v.fields.map(([k, x]) => `${pyStr(k)}: ${pyStr(x)}`).join(", ")}}`);
+  return `{${parts.join(", ")}}`;
+}
+
+/* ===========================================================================
+   Layer 2 — layers/contract.py
+   =========================================================================== */
+function validate(request, contract) {
+  for (const { verb, fields } of request.verbs) {
+    if (!(verb in contract.verbs)) return { ok: false, verb, msg: `verb '${verb}' is not declared in contract '${contract.name}'` };
+    const spec = contract.verbs[verb];
+    const allowed = new Set([...spec.required, ...spec.optional]);
+    const given = new Set(fields.map((f) => f[0]));
+    const missing = pySorted(spec.required.filter((x) => !given.has(x)));
+    if (missing.length) return { ok: false, verb, msg: `verb '${verb}' is missing required field(s): ${pyList(missing)}` };
+    const unknown = pySorted([...given].filter((x) => !allowed.has(x)));
+    if (unknown.length) return { ok: false, verb, msg: `verb '${verb}' has field(s) not declared in the contract: ${pyList(unknown)}` };
+  }
+  return { ok: true };
+}
+// Per-field classification for the UI (the verdict above stays first-violation-wins, like the Python).
+function classify(request, contract) {
+  return request.verbs.map(({ verb, fields }) => {
+    const spec = contract.verbs[verb];
+    if (!spec) return { verb, declared: false, fields: fields.map(([k]) => ({ k, s: "bad" })), missing: [] };
+    const given = new Set(fields.map((f) => f[0]));
+    return {
+      verb, declared: true,
+      fields: fields.map(([k]) => ({ k, s: spec.required.includes(k) ? "req" : spec.optional.includes(k) ? "opt" : "bad" })),
+      missing: spec.required.filter((x) => !given.has(x)),
+    };
+  });
+}
+
+/* ===========================================================================
+   Layer 3 — layers/policy.py
+   =========================================================================== */
+function checkAccess(st, component, team, capability) {
+  const comps = st.components, teams = st.teams;
+  const checks = [
+    { label: `component '${component}' is registered` },
+    { label: `'${team}' is its owner` },
+    { label: `team '${team}' is registered` },
+    { label: `'${team}' is granted '${capability}'` },
+  ];
+  const finish = (i, allowed, reason) => {
+    checks.forEach((c, j) => { c.s = j < i ? "ok" : j === i ? (allowed ? "ok" : "fail") : "skip"; });
+    if (allowed) checks.forEach((c) => (c.s = "ok"));
+    return { allowed, reason, checks };
+  };
+  if (!(component in comps)) return finish(0, false, `component '${component}' is not registered in the catalog`);
+  const owner = comps[component].owner;
+  if (owner !== team) return finish(1, false, `'${team}' does not own '${component}' (owner is '${owner}')`);
+  if (!(team in teams)) return finish(2, false, `team '${team}' is not registered in the catalog`);
+  if (!teams[team].includes(capability)) return finish(3, false, `'${team}' has no role granting capability '${capability}'`);
+  return finish(4, true, `'${team}' owns '${component}' and is granted '${capability}'`);
+}
+
+/* ===========================================================================
+   Layer 4 — layers/binding.py (first match wins)
+   =========================================================================== */
+const matches = (pattern, value) => pattern === "*" || pattern === value;
+function resolve(rules, tenant, environment) {
+  let hit = -1;
+  const evals = rules.map((r, i) => {
+    const t = matches(r.tenant, tenant), e = matches(r.environment, environment);
+    const m = hit < 0 && t && e;
+    if (m) hit = i;
+    return { t, e, state: hit >= 0 && hit < i ? "after" : m ? "hit" : "miss" };
+  });
+  return { provider: hit >= 0 ? rules[hit].provider : null, index: hit, evals };
+}
+
+/* ===========================================================================
+   Layers 5/6 — layers/adapters.py (vendor calls are simulated, never made)
+   =========================================================================== */
+const DYNATRACE_BASE_URL = "https://abc12345.live.dynatrace.com";
+const ADAPTERS = {
+  datadog: {
+    "emit-metric": { uses: ["name", "type"], call: (p) => ({ url: "https://api.datadoghq.com/api/v1/series", body: `{'metric': '${p.name}', 'type': '${p.type}'}` }) },
+    "define-alert": { uses: ["condition", "severity"], call: (p) => ({ url: "https://api.datadoghq.com/api/v1/monitor", body: `{'type': 'metric alert', 'query': '${p.condition}', 'tags': ['severity:${p.severity}']}` }) },
+  },
+  dynatrace: {
+    "emit-metric": { uses: ["name", "type"], call: (p) => ({ url: `${DYNATRACE_BASE_URL}/api/v2/metrics/ingest`, body: `'${p.name},type=${p.type} value'` }) },
+    "define-alert": { uses: ["metric", "condition", "severity"], call: (p) => ({ url: `${DYNATRACE_BASE_URL}/api/config/v1/anomalyDetection/metricEvents`, body: `{'metricId': '${p.metric}', 'threshold': '${p.condition}', 'severity': '${p.severity}'}` }) },
+  },
+};
+function adapt(provider, request) {
+  const adapter = ADAPTERS[provider];
+  if (!adapter) return { crashed: `KeyError: '${provider}'`, calls: [] };
+  const calls = [];
+  for (const { verb, fields } of request.verbs) {
+    const t = adapter[verb];
+    const p = fieldsObj(fields);
+    if (!t) { calls.push({ verb, dropped: true, ignored: Object.keys(p) }); continue; } // Python: if/elif with no else, so silently skipped
+    const missing = t.uses.find((k) => !(k in p));
+    if (missing) {
+      // Python prints the POST line, then raises KeyError building the body.
+      const { url } = t.call(new Proxy({}, { get: () => "" }));
+      calls.push({ verb, url, error: `KeyError: '${missing}'` });
+      return { crashed: `KeyError: '${missing}'`, calls };
+    }
+    calls.push({ verb, ...t.call(p), ignored: Object.keys(p).filter((k) => !t.uses.includes(k)) });
+  }
+  return { calls };
+}
+
+/* ===========================================================================
+   platform.py cmd_apply — the whole run, as structured steps plus the exact
+   text the CLI would print.
+   =========================================================================== */
+function runApply(st) {
+  const r = st.run, req = st.request, out = [], steps = [];
+  const skip = (from) => { for (let n = from; n <= 6; n++) steps.push({ n, status: "skip" }); };
+
+  out.push(`[1 Developer Interface] read request '${PATHS.request}'`, `    ${pyRepr(req)}`);
+  steps.push({ n: 1, status: "ok" });
+
+  out.push(`[2 Capability Contract] validating against '${PATHS.contract}'`);
+  const v = validate(req, st.contract);
+  const cls = classify(req, st.contract);
+  if (!v.ok) {
+    out.push(`    REJECTED: ${v.msg}`);
+    steps.push({ n: 2, status: "fail", v, cls }); skip(3);
+    return { steps, out, exit: 1, outcome: { kind: "rejected", at: 2, msg: v.msg } };
+  }
+  out.push("    ok — every verb/field is declared in the contract");
+  steps.push({ n: 2, status: "ok", v, cls });
+
+  const cap = req.capability;
+  out.push(`[3 Policy & Ownership Graph] does '${r.team}' own '${r.component}' and may it use '${cap}'?`);
+  const a = checkAccess(st, r.component, r.team, cap);
+  out.push(`    ${a.allowed ? "ALLOWED" : "DENIED"} — ${a.reason}`);
+  if (!a.allowed) {
+    steps.push({ n: 3, status: "fail", a }); skip(4);
+    return { steps, out, exit: 1, outcome: { kind: "denied", at: 3, msg: a.reason } };
+  }
+  steps.push({ n: 3, status: "ok", a });
+
+  out.push(`[4 Binding Policy] resolving provider for tenant='${r.tenant}' environment='${r.environment}'`);
+  const b = resolve(st.bindings, r.tenant, r.environment);
+  if (!b.provider) {
+    out.push("Traceback (most recent call last):", "  ...", "ValueError: no binding rule matched — the policy must end in a */* default");
+    steps.push({ n: 4, status: "fail", b }); skip(5);
+    return { steps, out, exit: 1, outcome: { kind: "nobinding", at: 4, msg: "no binding rule matched" } };
+  }
+  out.push(`    -> provider: ${b.provider}`);
+  steps.push({ n: 4, status: "ok", b });
+
+  out.push(`[5 Provider Adapter] translating verbs for '${b.provider}'`, "[6 Concrete Vendor] (simulated) calls:");
+  const ad = adapt(b.provider, req);
+  for (const c of ad.calls) if (c.url) out.push(`    POST ${c.url}`, ...(c.error ? [] : [`    body: ${c.body}`]));
+  if (ad.crashed) {
+    out.push("Traceback (most recent call last):", "  ...", ad.crashed);
+    steps.push({ n: 5, status: "fail", ad, provider: b.provider }, { n: 6, status: ad.calls.some((c) => c.url && !c.error) ? "warn" : "skip", ad, provider: b.provider });
+    return { steps, out, exit: 1, outcome: { kind: "adapter", at: 5, msg: ad.crashed } };
+  }
+  const dropped = ad.calls.filter((c) => c.dropped);
+  steps.push({ n: 5, status: dropped.length ? "warn" : "ok", ad, provider: b.provider }, { n: 6, status: "ok", ad, provider: b.provider });
+  return { steps, out, exit: 0, outcome: { kind: dropped.length ? "partial" : "applied", provider: b.provider, dropped } };
+}
+
+/* ===========================================================================
+   YAML views of the state, laid out like the files on disk so the diff
+   against the originals reads line by line.
+   =========================================================================== */
+const q = (s) => (s === "" || /^[\s*&!|>%@`'"]|[:#{}\[\],]|\s$|\s>|>\s/.test(s) ? JSON.stringify(s) : s);
+const flow = (xs) => `[${xs.join(", ")}]`;
+const YAML = {
+  request: (st) => [
+    "# Golden-path request — vendor-neutral. References the contract, never a vendor.",
+    `capability: ${st.request.capability}`,
+    ...st.request.verbs.flatMap((v) => [`${v.verb}:${v.fields.length ? "" : " {}"}`, ...v.fields.map(([k, x]) => `  ${k}: ${q(x)}`)]),
+  ],
+  contract: (st) => [
+    "# Capability Contract — vendor-neutral. No vendor name may appear here.",
+    "kind: Capability", `name: ${st.contract.name}`, `version: ${st.contract.version}`, "verbs:",
+    ...Object.entries(st.contract.verbs).flatMap(([verb, s]) => [`  ${verb}:`, `    required: ${flow(s.required)}`, `    optional: ${flow(s.optional)}`]),
+  ],
+  components: (st) => [
+    "# Ownership Graph — Component -> owner Team. The single source of truth;",
+    "# vendor-native IAM is a generated projection of this, never hand-edited.",
+    "components:",
+    ...Object.entries(st.components).flatMap(([c, d]) => [`  ${c}:`, `    owner: ${d.owner}`, `    capability-bindings: ${flow(d.bindings)}`]),
+  ],
+  teams: (st) => [
+    "# Ownership Graph — Team -> granted capabilities (a flattened Team->Role->grants).",
+    "teams:",
+    ...Object.entries(st.teams).flatMap(([t, g]) => [`  ${t}:`, `    grants: ${flow(g)}`]),
+  ],
+  bindings: (st) => [
+    "# Binding Policy — the ONLY file in this demo allowed to name a vendor.",
+    "# Evaluated top-to-bottom, first match wins. Must end in a */*/* default.",
+    "kind: BindingPolicy", "capability: observability", "rules:",
+    ...st.bindings.flatMap((r) => [`  - match: { tenant: ${JSON.stringify(r.tenant)}, environment: ${r.environment === "*" ? '"*"' : q(r.environment)} }`, `    provider: ${r.provider}`]),
+  ],
+};
+function diffLines(key) {
+  const before = YAML[key](SEED), now = YAML[key](S);
+  const pool = new Map();
+  before.forEach((l) => pool.set(l, (pool.get(l) || 0) + 1));
+  return now.map((l) => {
+    const n = pool.get(l) || 0;
+    if (n) { pool.set(l, n - 1); return { l, chg: false }; }
+    return { l, chg: true };
+  });
+}
+function changedCount(key) {
+  const a = YAML[key](SEED), b = YAML[key](S);
+  if (a.join("\n") === b.join("\n")) return 0;
+  const added = diffLines(key).filter((x) => x.chg).length;
+  return Math.max(added, Math.abs(a.length - b.length), 1);
+}
+const vendorNamed = (key) => YAML[key](S).some((l) => !l.trim().startsWith("#") && VENDOR_RE.test(l));
+function yamlPre(key) {
+  return `<pre class="yaml">${diffLines(key).map(({ l, chg }) => {
+    const isC = l.trim().startsWith("#");
+    const vnd = !isC && key !== "bindings" && VENDOR_RE.test(l);
+    return `<span class="ln${chg ? " chg" : ""}${vnd ? " vnd" : ""}">${isC ? `<span class="cm">${esc(l)}</span>` : esc(l) || " "}</span>`;
+  }).join("")}</pre>`;
+}
+
+/* ===========================================================================
+   State
+   =========================================================================== */
+const SEED = seed();
+let S = seed();
+let tab = "request";
+let tourStep = 0;
+let R = null;
+let prevSig = [];
+
+const LAYERS = [
+  { n: 1, name: "Developer Interface", stands: "CLI / API / MCP server", file: PATHS.request, tab: "request" },
+  { n: 2, name: "Capability Contract", stands: "KubeVela ComponentDefinition (KCL schema)", file: PATHS.contract, tab: "contract" },
+  { n: 3, name: "Policy & Ownership Graph", stands: "DataHub + OpenFGA", file: "catalog/*.yaml", tab: "catalog" },
+  { n: 4, name: "Binding Policy", stands: "the one git file allowed to name a vendor", file: PATHS.bindings, tab: "bindings", vendor: true },
+  { n: 5, name: "Provider Adapter", stands: "Crossplane Composition Function", file: "layers/adapters.py", tab: "output", vendor: true },
+  { n: 6, name: "Concrete Vendor", stands: "vendor API, simulated", file: "", tab: "output", vendor: true },
+];
+
+/* ===========================================================================
+   Rendering — pipeline
+   =========================================================================== */
+const STATUS_TEXT = { ok: "PASS", fail: "STOPPED", warn: "WARNING", skip: "NOT REACHED" };
+function cardBody(L, st) {
+  if (st.status === "skip") return `<div class="note">The run stopped before this layer.</div>`;
+  const r = S.run;
+  switch (L.n) {
+    case 1: return `
+      <div style="margin-bottom:5px">A developer asks for <code>${esc(S.request.capability)}</code> and names no vendor:</div>
+      <div class="packet">${S.request.verbs.map((v) => `<span class="tag">${esc(v.verb)}</span>`).join("")}</div>`;
+    case 2: {
+      const rows = st.cls.map((c) => `
+        <div class="vrow"><span class="vk">${esc(c.verb)}</span><span class="vv">
+          ${!c.declared ? `<span class="tag bad">verb not in contract</span>` : ""}
+          ${c.fields.map((f) => `<span class="tag ${f.s === "bad" ? "bad" : "ok"}" title="${f.s === "req" ? "required" : f.s === "opt" ? "optional" : "not declared"}">${esc(f.k)}${f.s === "opt" ? "?" : ""}</span>`).join("")}
+          ${c.missing.map((m) => `<span class="tag dim" title="required, missing">${esc(m)} missing</span>`).join("")}
+        </span></div>`).join("");
+      return rows + (st.status === "fail"
+        ? `<div class="verdict fail">REJECTED: ${esc(st.v.msg)}</div>`
+        : `<div class="verdict ok">ok — every verb and field is declared in the contract</div>`);
+    }
+    case 3: {
+      const comp = S.components[r.component];
+      const owner = comp ? comp.owner : "<unknown>";
+      const grants = S.teams[owner] || [];
+      const ownerBad = comp && owner !== r.team;
+      return `
+        <div class="chain">
+          <span class="nd ${comp ? "" : "bad"}">Component(${esc(r.component)})</span><span class="hop">--owned-by--&gt;</span>
+          <span class="nd ${ownerBad ? "bad" : comp ? "ok" : ""}">Team(${esc(owner)})</span><span class="hop">--grants--&gt;</span>
+          <span class="nd">${esc(pyList(grants))}</span>
+        </div>
+        <div class="checks">${st.a.checks.map((c) => `<div class="ck ${c.s}"><span class="m">${c.s === "ok" ? "✓" : c.s === "fail" ? "✗" : "·"}</span><span>${esc(c.label)}</span></div>`).join("")}</div>
+        <div class="verdict ${st.a.allowed ? "ok" : "fail"}">${st.a.allowed ? "ALLOWED" : "DENIED"} — ${esc(st.a.reason)}</div>`;
+    }
+    case 4: {
+      const rows = S.bindings.map((b, i) => {
+        const e = st.b.evals[i];
+        return `<tr class="${e.state}"><td class="mono">${i + 1}</td><td class="mono">${esc(b.tenant)} <span class="${e.t ? "yes" : "no"}">${e.t ? "✓" : "✗"}</span></td>
+          <td class="mono">${esc(b.environment)} <span class="${e.e ? "yes" : "no"}">${e.e ? "✓" : "✗"}</span></td>
+          <td class="mono">${esc(b.provider)}</td><td class="mono" style="color:var(--ink-3)">${e.state === "hit" ? "first match" : e.state === "after" ? "not evaluated" : ""}</td></tr>`;
+      }).join("");
+      return `
+        <div style="margin-bottom:4px">tenant <code>${esc(r.tenant)}</code>, environment <code>${esc(r.environment)}</code>, rules top to bottom:</div>
+        <div class="scroll-x"><table class="grid"><thead><tr><th>#</th><th>tenant</th><th>env</th><th>provider</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+        ${st.b.provider ? `<div class="verdict ok" style="background:var(--vendor-soft);color:var(--vendor)">-&gt; provider: ${esc(st.b.provider)}</div>`
+                        : `<div class="verdict fail">ValueError: no binding rule matched — the policy must end in a */* default</div>`}`;
+    }
+    case 5: {
+      if (!ADAPTERS[st.provider]) return `<div class="verdict fail">No adapter for '${esc(st.provider)}' (${esc(st.ad.crashed)}). The binding names a vendor the platform cannot talk to yet. Adding a vendor means writing an adapter first.</div>`;
+      const rows = S.request.verbs.map((v) => {
+        const t = ADAPTERS[st.provider][v.verb];
+        const c = st.ad.calls.find((x) => x.verb === v.verb);
+        let res;
+        if (!t) res = `<span class="tag warn">no translation, silently dropped</span>`;
+        else if (c && c.error) res = `<span class="tag bad">${esc(c.error)}</span>`;
+        else if (!c) res = `<span class="tag dim">not reached</span>`;
+        else res = `<span class="tag vendor">${esc(new URL(c.url).pathname)}</span>${c.ignored.length ? ` <span class="note">ignores ${c.ignored.map(esc).join(", ")}</span>` : ""}`;
+        return `<div class="vrow"><span class="vk">${esc(v.verb)}</span><span class="vv">${res}</span></div>`;
+      }).join("");
+      const msg = st.status === "fail"
+        ? `<div class="verdict fail">${esc(st.ad.crashed)}: the adapter expects a field the request didn't send. The contract and every adapter have to change together.</div>`
+        : st.status === "warn" ? `<div class="verdict warn">The contract accepted a verb this adapter can't translate. The request "succeeds" and part of it does nothing.</div>` : "";
+      return `<div style="margin-bottom:4px">Same verbs, translated into <code>${esc(st.provider)}</code>'s API:</div>${rows}${msg}`;
+    }
+    case 6: {
+      const calls = st.ad.calls.filter((c) => c.url && !c.error);
+      if (!calls.length) return `<div class="note">No calls made.</div>`;
+      return calls.map((c) => `<div class="call"><span class="vb">${esc(c.verb)}</span><br><span class="meth">POST</span> ${esc(c.url)}<br><span class="body">body: ${esc(c.body)}</span></div>`).join("")
+        + `<div class="note" style="margin-top:6px">Printed, not sent.</div>`;
+    }
+  }
+}
+function renderPipe() {
+  const pipe = document.getElementById("pipe");
+  const html = [];
+  const sigs = [];
+  LAYERS.forEach((L, i) => {
+    const st = R.steps[i];
+    const body = cardBody(L, st);
+    sigs.push(st.status + body);
+    const changed = prevSig.length && prevSig[i] !== sigs[i];
+    const statusCls = st.status === "ok" && L.vendor ? "vendor" : st.status;
+    if (L.n === 4) html.push(`<div class="divider"><span class="up">▲ vendor-neutral</span><span>vendor named ▼</span></div>`);
+    html.push(`
+      <div class="card ${st.status}${L.vendor ? " vendor" : ""}${changed ? " changed" : ""}${L.tab === tab ? " sel" : ""}" data-tab="${L.tab}" tabindex="0" role="button" aria-label="Layer ${L.n}: ${L.name}">
+        <div class="n">${L.n}</div>
+        <div>
+          <div class="hd"><h3>${L.name}</h3><span class="stands">${esc(L.stands)}</span>
+            <span class="status ${statusCls}">${st.status === "ok" && L.n === 4 && st.b ? esc(st.b.provider).toUpperCase() : STATUS_TEXT[st.status]}</span></div>
+          ${L.file ? `<div class="file">${esc(L.file)}</div>` : ""}
+          <div class="bd">${body}</div>
+        </div>
+      </div>`);
+    if (i < LAYERS.length - 1) {
+      const hot = st.status === "ok" || st.status === "warn";
+      html.push(`<div class="conn${hot && R.steps[i + 1].status !== "skip" ? " hot" : ""}"><svg width="12" height="22"><line x1="6" y1="0" x2="6" y2="15"/><polygon points="1,14 11,14 6,21"/></svg></div>`);
+    }
+  });
+  pipe.innerHTML = html.join("");
+  prevSig = sigs;
+  pipe.querySelectorAll(".card").forEach((c) => {
+    const go = () => { tab = c.dataset.tab; render(); };
+    c.addEventListener("click", go);
+    c.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } });
+  });
+}
+
+/* ===========================================================================
+   Rendering — rail
+   =========================================================================== */
+function renderFlags() {
+  const r = S.run;
+  const comps = Object.keys(S.components), teams = Object.keys(S.teams);
+  const tenants = [...new Set(["team-growth", "my-org", "other-org", ...S.bindings.map((b) => b.tenant).filter((t) => t !== "*")])];
+  const envs = [...new Set(["production", "staging", "dev", ...S.bindings.map((b) => b.environment).filter((t) => t !== "*")])];
+  const sel = (id, opts, val) => `<select id="${id}">${(opts.includes(val) ? opts : [val, ...opts]).map((o) => `<option ${o === val ? "selected" : ""}>${esc(o)}</option>`).join("")}</select>`;
+  document.getElementById("flags").innerHTML = `
+    <label for="f-component">--component</label>${sel("f-component", comps, r.component)}
+    <label for="f-team">--team</label>${sel("f-team", teams, r.team)}
+    <label for="f-tenant">--tenant</label><input type="text" id="f-tenant" list="dl-tenant" value="${esc(r.tenant)}">
+    <label for="f-environment">--environment</label><input type="text" id="f-environment" list="dl-env" value="${esc(r.environment)}">
+    <datalist id="dl-tenant">${tenants.map((t) => `<option value="${esc(t)}">`).join("")}</datalist>
+    <datalist id="dl-env">${envs.map((t) => `<option value="${esc(t)}">`).join("")}</datalist>`;
+  for (const k of ["component", "team"]) document.getElementById("f-" + k).addEventListener("change", (e) => { S.run[k] = e.target.value; render(); });
+  for (const k of ["tenant", "environment"]) {
+    const el = document.getElementById("f-" + k);
+    el.addEventListener("input", (e) => { S.run[k] = e.target.value.trim(); refresh(); });
+  }
+}
+function renderCli() {
+  const r = S.run;
+  document.getElementById("cli").innerHTML = `<span class="p">$ </span>python3 platform.py apply \\\n    ${PATHS.request} \\\n    --component ${esc(r.component)} \\\n    --team ${esc(r.team)} \\\n    --tenant ${esc(r.tenant)} \\\n    --environment ${esc(r.environment)}`;
+}
+function renderStats() {
+  const files = ["request", "contract", "components", "teams", "bindings"];
+  const edited = files.filter((f) => changedCount(f) > 0);
+  const lines = edited.reduce((n, f) => n + changedCount(f), 0);
+  const named = files.filter(vendorNamed);
+  const leak = named.filter((f) => f !== "bindings");
+  const o = R.outcome;
+  const outcome = {
+    applied: ["applied", "ok"], partial: ["applied, verb dropped", "warn"], rejected: ["rejected at layer 2", "bad"],
+    denied: ["denied at layer 3", "bad"], nobinding: ["no binding at layer 4", "bad"], adapter: ["adapter crash at layer 5", "bad"],
+  }[o.kind];
+  document.getElementById("stats").innerHTML = `
+    <div class="stat"><span class="k">Outcome</span><span class="v ${outcome[1]}">${outcome[0]}</span></div>
+    <div class="stat"><span class="k">Provider</span><span class="v vendor">${R.steps[3].b ? esc(R.steps[3].b.provider || "none") : "—"}</span></div>
+    <div class="stat"><span class="k">Files edited</span><span class="v ${edited.length ? "warn" : ""}">${edited.length} / 5${edited.length ? ` · ${lines} line${lines === 1 ? "" : "s"}` : ""}</span></div>
+    ${edited.map((f) => `<div class="stat"><span class="k mono" style="font-size:10.5px">${PATHS[f]}</span><span class="v warn">${changedCount(f)}</span></div>`).join("")}
+    <div class="stat"><span class="k">Files naming a vendor</span><span class="v ${leak.length ? "bad" : "ok"}">${named.length ? named.map((f) => PATHS[f].split("/")[0]).join(", ") : "none"}</span></div>
+    ${leak.length ? `<div class="stat"><span class="k" style="color:var(--deny)">A vendor name leaked outside the binding policy. The contract is what stops it reaching a vendor.</span></div>` : ""}`;
+}
+
+/* ===========================================================================
+   Rendering — inspector (editors + YAML + terminal)
+   =========================================================================== */
+const TABS = [
+  { id: "request", label: "Request", files: ["request"] },
+  { id: "contract", label: "Contract", files: ["contract"] },
+  { id: "catalog", label: "Catalog", files: ["components", "teams"] },
+  { id: "bindings", label: "Bindings", files: ["bindings"] },
+  { id: "output", label: "Output", files: [] },
+];
+const HEADS = {
+  request: ["Layer 1 · developer input", "The request", "What a golden-path template produces. Vendor-neutral by construction: the contract rejects anything else."],
+  contract: ["Layer 2", "Capability contract", "Which verbs exist and which fields each takes. No vendor may appear here. Every adapter has to implement all of it."],
+  catalog: ["Layer 3", "Ownership graph", "Who owns each component and what each team may use. Vendor IAM is generated from this, never hand-edited."],
+  bindings: ["Layer 4", "Binding policy", "The only file that names a vendor. Rules run top to bottom; the first match wins."],
+  output: ["Layers 1–6", "Terminal output", "What python3 platform.py apply would print for these files and flags."],
+};
+function renderTabs() {
+  document.getElementById("tabs").innerHTML = TABS.map((t) => {
+    const dirty = t.files.some((f) => changedCount(f) > 0);
+    return `<button role="tab" aria-selected="${t.id === tab}" data-t="${t.id}">${t.label}${dirty ? `<span class="dot" title="edited"></span>` : ""}</button>`;
+  }).join("");
+  document.getElementById("tabs").querySelectorAll("button").forEach((b) => b.addEventListener("click", () => { tab = b.dataset.t; render(); }));
+  const [ref, title, sub] = HEADS[tab];
+  document.getElementById("iref").textContent = ref;
+  document.getElementById("ititle").textContent = title;
+  document.getElementById("isub").textContent = sub;
+}
+
+function paneRequest() {
+  const has = (verb, k) => S.request.verbs.some((v) => v.verb === verb && v.fields.some((f) => f[0] === k));
+  return `
+    <div class="tries"><span class="eyebrow">Try</span>
+      <button class="btn xs" data-try="vendor" ${has("define-alert", "vendor_tag") ? "disabled" : ""}>+ vendor_tag</button>
+      <button class="btn xs" data-try="labels" ${has("emit-metric", "labels") ? "disabled" : ""}>+ labels</button>
+      <button class="btn xs" data-try="nosev" ${!has("define-alert", "severity") ? "disabled" : ""}>− severity</button>
+      <button class="btn xs" data-try="dash" ${S.request.verbs.some((v) => v.verb === "create-dashboard") ? "disabled" : ""}>+ create-dashboard</button>
+    </div>
+    ${S.request.verbs.map((v, vi) => `
+      <div class="ed">
+        <div class="ed-h"><span class="vn">${esc(v.verb)}</span><button class="btn ghost xs sp" data-rmverb="${vi}" title="Remove verb">remove</button></div>
+        <div class="ed-b">
+          ${v.fields.map(([k, x], fi) => `
+            <div class="kv"><span class="k" title="${esc(k)}">${esc(k)}</span>
+              <input type="text" value="${esc(x)}" data-val="${vi}:${fi}" aria-label="${esc(v.verb)} ${esc(k)}">
+              <button class="btn ghost xs" data-rmf="${vi}:${fi}" title="Remove field">×</button></div>`).join("")}
+          <div class="addrow"><input type="text" placeholder="new field name" data-newf="${vi}" aria-label="New field for ${esc(v.verb)}"><button class="btn xs" data-addf="${vi}">add</button></div>
+        </div>
+      </div>`).join("")}
+    <div class="addrow" style="margin-bottom:14px"><input type="text" placeholder="new verb, e.g. create-dashboard" id="newverb"><button class="btn xs" id="addverb">add verb</button></div>
+    <div class="block"><h3>YAML <span class="file">${PATHS.request}</span></h3><div id="y-request">${yamlPre("request")}</div></div>`;
+}
+function paneContract() {
+  const c = S.contract;
+  return `
+    <div class="infobox">Changing the contract changes the promise to <b>every</b> adapter. Make a field optional, drop it from the request, and see which vendor still copes.</div>
+    ${Object.entries(c.verbs).map(([verb, s]) => {
+      const fields = [...s.required.map((f) => [f, "req"]), ...s.optional.map((f) => [f, "opt"])];
+      return `
+      <div class="ed">
+        <div class="ed-h"><span class="vn">${esc(verb)}</span><button class="btn ghost xs sp" data-rmcverb="${esc(verb)}">remove</button></div>
+        <div class="ed-b">
+          ${fields.map(([f, k]) => `
+            <div class="fieldrow"><span class="fn">${esc(f)}</span>
+              <span class="seg">${["req", "opt"].map((m) => `<button aria-pressed="${k === m}" data-cf="${esc(verb)}|${esc(f)}|${m}">${m === "req" ? "required" : "optional"}</button>`).join("")}</span>
+              <button class="btn ghost xs" data-cf="${esc(verb)}|${esc(f)}|rm" title="Remove from contract">×</button></div>`).join("")}
+          <div class="addrow"><input type="text" placeholder="new optional field" data-newcf="${esc(verb)}"><button class="btn xs" data-addcf="${esc(verb)}">add</button></div>
+        </div>
+      </div>`; }).join("")}
+    <div class="addrow" style="margin-bottom:14px"><input type="text" placeholder="new verb" id="newcverb"><button class="btn xs" id="addcverb">add verb</button></div>
+    <div class="block"><h3>YAML <span class="file">${PATHS.contract}</span></h3><div id="y-contract">${yamlPre("contract")}</div></div>`;
+}
+function paneCatalog() {
+  const teams = Object.keys(S.teams);
+  return `
+    <div class="block"><h3>Components <span class="file">${PATHS.components}</span></h3>
+      <table class="grid"><thead><tr><th>component</th><th>owner</th></tr></thead><tbody>
+        ${Object.entries(S.components).map(([c, d]) => `<tr><td class="mono">${esc(c)}</td><td><select data-owner="${esc(c)}">${teams.map((t) => `<option ${t === d.owner ? "selected" : ""}>${esc(t)}</option>`).join("")}</select></td></tr>`).join("")}
+      </tbody></table>
+      <div class="note" style="margin-top:6px">Changing the owner is <code>transfer-ownership</code>: one field, and every access decision downstream recalculates from it.</div>
+    </div>
+    <div class="block"><h3>Teams <span class="file">${PATHS.teams}</span></h3>
+      <table class="grid"><thead><tr><th>team</th><th>grants</th><th>owns</th></tr></thead><tbody>
+        ${teams.map((t) => `<tr><td class="mono">${esc(t)}</td>
+          <td><label class="chk"><input type="checkbox" data-grant="${esc(t)}" ${S.teams[t].includes("observability") ? "checked" : ""}> observability</label></td>
+          <td class="mono" style="color:var(--ink-3)">${Object.keys(S.components).filter((c) => S.components[c].owner === t).map(esc).join(", ") || "—"}</td></tr>`).join("")}
+      </tbody></table>
+    </div>
+    <div class="block"><h3>YAML <span class="file">${PATHS.components}</span></h3><div id="y-components">${yamlPre("components")}</div></div>
+    <div class="block"><h3>YAML <span class="file">${PATHS.teams}</span></h3><div id="y-teams">${yamlPre("teams")}</div></div>`;
+}
+function paneBindings() {
+  const n = S.bindings.length;
+  const last = S.bindings[n - 1];
+  const noDefault = !last || last.tenant !== "*" || last.environment !== "*";
+  return `
+    ${noDefault ? `<div class="warnbox">The policy no longer ends in a <code>*</code> / <code>*</code> default. Some tenant and environment pairs will match nothing.</div>` : ""}
+    <div class="scroll-x"><table class="grid" style="min-width:360px"><thead><tr><th>#</th><th>tenant</th><th>environment</th><th>provider</th><th></th></tr></thead><tbody>
+      ${S.bindings.map((b, i) => `
+        <tr class="brow ${R.steps[3].b && R.steps[3].b.index === i ? "hit" : ""}">
+          <td class="mono">${i + 1}</td>
+          <td><input type="text" value="${esc(b.tenant)}" data-b="${i}|tenant" aria-label="Rule ${i + 1} tenant"></td>
+          <td><input type="text" value="${esc(b.environment)}" data-b="${i}|environment" aria-label="Rule ${i + 1} environment"></td>
+          <td><select data-bp="${i}" aria-label="Rule ${i + 1} provider">${VENDORS.map((v) => `<option value="${v}" ${v === b.provider ? "selected" : ""}>${v}${ADAPTERS[v] ? "" : " (no adapter)"}</option>`).join("")}</select></td>
+          <td><span class="ord">
+            <button class="btn xs" data-mv="${i}|-1" ${i === 0 ? "disabled" : ""} title="Move up" aria-label="Move rule ${i + 1} up">↑</button>
+            <button class="btn xs" data-mv="${i}|1" ${i === n - 1 ? "disabled" : ""} title="Move down" aria-label="Move rule ${i + 1} down">↓</button>
+            <button class="btn ghost xs" data-rmb="${i}" title="Remove rule" aria-label="Remove rule ${i + 1}">×</button></span></td>
+        </tr>`).join("")}
+    </tbody></table></div>
+    <div style="margin:8px 0 14px"><button class="btn sm" id="addrule">Add rule at top</button></div>
+    <div class="note" style="margin-bottom:12px"><code>*</code> matches anything. The highlighted rule is the one the current run hit.</div>
+    <div class="block"><h3>YAML <span class="file">${PATHS.bindings}</span></h3><div id="y-bindings">${yamlPre("bindings")}</div></div>`;
+}
+function paneOutput() {
+  const cls = (l) => /REJECTED|DENIED|Error|Traceback/.test(l) ? "bad" : /^\[\d/.test(l) ? "h" : /ALLOWED|ok —|-> provider/.test(l) ? "good" : "";
+  const r = S.run;
+  return `
+    <pre class="term"><span class="pr">$ python3 platform.py apply ${esc(PATHS.request)} --component ${esc(r.component)} --team ${esc(r.team)} --tenant ${esc(r.tenant)} --environment ${esc(r.environment)}</span>
+${R.out.map((l) => `<span class="${cls(l)}">${esc(l)}</span>`).join("\n")}
+<span class="pr">exit status ${R.exit}</span></pre>
+    <div class="note" style="margin-top:10px">To run it for real: <code>pip install pyyaml</code>, then follow the <a href="../../docs/platform-abstraction/tutorial.md">tutorial</a> in <code>demos/platform-abstraction/</code>. Same files, same output.</div>`;
+}
+
+function renderPanes() {
+  const panes = document.getElementById("panes");
+  panes.innerHTML = { request: paneRequest, contract: paneContract, catalog: paneCatalog, bindings: paneBindings, output: paneOutput }[tab]();
+  bindPanes(panes);
+}
+// Update the bits of the open pane that depend on state, without rebuilding inputs (keeps focus while typing).
+function refreshPaneViews() {
+  for (const f of ["request", "contract", "components", "teams", "bindings"]) {
+    const el = document.getElementById("y-" + f);
+    if (el) el.innerHTML = yamlPre(f);
+  }
+  if (tab === "bindings") document.querySelectorAll(".brow").forEach((tr, i) => tr.classList.toggle("hit", !!R.steps[3].b && R.steps[3].b.index === i));
+}
+
+function bindPanes(p) {
+  const on = (sel, ev, fn) => p.querySelectorAll(sel).forEach((el) => el.addEventListener(ev, fn));
+  // request
+  on("[data-try]", "click", (e) => {
+    const t = e.currentTarget.dataset.try;
+    const verb = (name) => S.request.verbs.find((v) => v.verb === name);
+    if (t === "vendor") verb("define-alert")?.fields.push(["vendor_tag", "datadog-specific"]);
+    if (t === "labels") verb("emit-metric")?.fields.push(["labels", "service=checkout"]);
+    if (t === "nosev") { const v = verb("define-alert"); if (v) v.fields = v.fields.filter((f) => f[0] !== "severity"); }
+    if (t === "dash") S.request.verbs.push({ verb: "create-dashboard", fields: [["title", "Checkout latency"]] });
+    render();
+  });
+  on("[data-val]", "input", (e) => { const [vi, fi] = e.target.dataset.val.split(":").map(Number); S.request.verbs[vi].fields[fi][1] = e.target.value; refresh(); });
+  on("[data-rmf]", "click", (e) => { const [vi, fi] = e.currentTarget.dataset.rmf.split(":").map(Number); S.request.verbs[vi].fields.splice(fi, 1); render(); });
+  on("[data-rmverb]", "click", (e) => { S.request.verbs.splice(+e.currentTarget.dataset.rmverb, 1); render(); });
+  const addField = (vi) => {
+    const inp = p.querySelector(`[data-newf="${vi}"]`);
+    const k = inp.value.trim();
+    if (!k || S.request.verbs[vi].fields.some((f) => f[0] === k)) { inp.focus(); return; }
+    S.request.verbs[vi].fields.push([k, "value"]); render();
+  };
+  on("[data-addf]", "click", (e) => addField(+e.currentTarget.dataset.addf));
+  on("[data-newf]", "keydown", (e) => { if (e.key === "Enter") addField(+e.target.dataset.newf); });
+  const addVerb = () => {
+    const inp = p.querySelector("#newverb"); const k = inp.value.trim();
+    if (!k || k === "capability" || S.request.verbs.some((v) => v.verb === k)) { inp.focus(); return; }
+    S.request.verbs.push({ verb: k, fields: [] }); render();
+  };
+  on("#addverb", "click", addVerb);
+  on("#newverb", "keydown", (e) => { if (e.key === "Enter") addVerb(); });
+
+  // contract
+  on("[data-cf]", "click", (e) => {
+    const [verb, f, m] = e.currentTarget.dataset.cf.split("|");
+    const s = S.contract.verbs[verb];
+    s.required = s.required.filter((x) => x !== f); s.optional = s.optional.filter((x) => x !== f);
+    if (m === "req") s.required.push(f); else if (m === "opt") s.optional.push(f);
+    render();
+  });
+  on("[data-rmcverb]", "click", (e) => { delete S.contract.verbs[e.currentTarget.dataset.rmcverb]; render(); });
+  const addCField = (verb) => {
+    const inp = p.querySelector(`[data-newcf="${CSS.escape(verb)}"]`); const k = inp.value.trim(); const s = S.contract.verbs[verb];
+    if (!k || s.required.includes(k) || s.optional.includes(k)) { inp.focus(); return; }
+    s.optional.push(k); render();
+  };
+  on("[data-addcf]", "click", (e) => addCField(e.currentTarget.dataset.addcf));
+  on("[data-newcf]", "keydown", (e) => { if (e.key === "Enter") addCField(e.target.dataset.newcf); });
+  const addCVerb = () => {
+    const inp = p.querySelector("#newcverb"); const k = inp.value.trim();
+    if (!k || k === "capability" || S.contract.verbs[k]) { inp.focus(); return; }
+    S.contract.verbs[k] = { required: [], optional: [] }; render();
+  };
+  on("#addcverb", "click", addCVerb);
+  on("#newcverb", "keydown", (e) => { if (e.key === "Enter") addCVerb(); });
+
+  // catalog
+  on("[data-owner]", "change", (e) => { S.components[e.target.dataset.owner].owner = e.target.value; render(); });
+  on("[data-grant]", "change", (e) => {
+    const t = e.target.dataset.grant;
+    S.teams[t] = e.target.checked ? [...S.teams[t], "observability"] : S.teams[t].filter((g) => g !== "observability");
+    render();
+  });
+
+  // bindings
+  on("[data-b]", "input", (e) => { const [i, k] = e.target.dataset.b.split("|"); S.bindings[+i][k] = e.target.value.trim(); refresh(); });
+  on("[data-bp]", "change", (e) => { S.bindings[+e.target.dataset.bp].provider = e.target.value; render(); });
+  on("[data-mv]", "click", (e) => {
+    const [i, d] = e.currentTarget.dataset.mv.split("|").map(Number);
+    const b = S.bindings; [b[i], b[i + d]] = [b[i + d], b[i]]; render();
+  });
+  on("[data-rmb]", "click", (e) => { S.bindings.splice(+e.currentTarget.dataset.rmb, 1); render(); });
+  on("#addrule", "click", () => { S.bindings.unshift({ tenant: S.run.tenant || "*", environment: S.run.environment || "*", provider: "dynatrace" }); render(); });
+}
+
+/* ===========================================================================
+   Guided tour — mirrors docs/platform-abstraction/tutorial.md. Each step
+   starts from the original files so steps don't depend on each other.
+   =========================================================================== */
+const TOUR = [
+  { t: "One request, six layers", b: "A developer asks for a latency metric and an alert. Read down the middle: the request clears the <b>contract</b>, the <b>ownership graph</b> allows it, and only at layer 4 does a vendor appear. Click any layer to open its file.",
+    go: () => { tab = "request"; } },
+  { t: "The contract rejects vendor fields", b: "The request now carries <code>vendor_tag: datadog-specific</code>. The run stops at layer 2 and nothing later runs. Remove the field with <b>×</b> and it goes through again. This is how vendor details stay out of developer config.",
+    go: () => { S.request.verbs[1].fields.push(["vendor_tag", "datadog-specific"]); tab = "request"; } },
+  { t: "The graph decides access", b: "Same request, now run as <code>team-checkout</code>. Layer 3 says <b>DENIED</b>: payments owns the service. The answer comes from the catalog, not from Datadog's user management.",
+    go: () => { S.run.team = "team-checkout"; tab = "catalog"; } },
+  { t: "Swap the vendor in one line", b: "Rule 1 now says <code>dynatrace</code>. Layers 1 to 3 are unchanged, and the calls at layer 6 now go to Dynatrace. <b>What changed</b> in the rail shows one line in one file.",
+    go: () => { S.bindings[0].provider = "dynatrace"; tab = "bindings"; } },
+  { t: "First match wins", b: "Tenant <code>my-org</code> in <code>staging</code> skips rule 1 and lands on rule 2, Dynatrace. Set the environment to <code>production</code> and rule 1 catches it first. Rule order is policy.",
+    go: () => { S.run.tenant = "my-org"; S.run.environment = "staging"; tab = "bindings"; } },
+  { t: "Move ownership with one field", b: "<code>checkout-service</code> now belongs to <code>team-checkout</code>, and the run is allowed as that team. Switch <code>--team</code> back to <code>team-payments</code>: denied. Nobody edited anything in a vendor tool.",
+    go: () => { S.components["checkout-service"].owner = "team-checkout"; S.run.team = "team-checkout"; tab = "catalog"; } },
+  { t: "Owning isn't enough", b: "<code>team-growth</code> owns the service but holds no grant for observability, so the last check fails. Tick its grant in the Catalog tab and the run goes through.",
+    go: () => { S.components["checkout-service"].owner = "team-growth"; S.run.team = "team-growth"; tab = "catalog"; } },
+  { t: "Contracts and adapters move together", b: "<code>type</code> is now optional and the request leaves it out. The contract passes, then the Datadog adapter crashes looking for it. Changing a contract means changing every adapter. Try <code>create-dashboard</code> in the Request tab too: no adapter knows it.",
+    go: () => {
+      const s = S.contract.verbs["emit-metric"]; s.required = ["name"]; s.optional = ["type", "labels"];
+      S.request.verbs[0].fields = S.request.verbs[0].fields.filter((f) => f[0] !== "type"); tab = "contract";
+    } },
+];
+function gotoStep(i) {
+  tourStep = i; S = seed(); prevSig = []; TOUR[i].go(); render();
+  try { history.replaceState(null, "", i ? `#step-${i + 1}` : location.pathname + location.search); } catch (e) { /* file:// in some browsers */ }
+}
+function renderTour() {
+  const s = TOUR[tourStep];
+  document.getElementById("tour").innerHTML = `
+    <div class="tour-step"><span class="num">${tourStep + 1}</span><b style="font-family:var(--cond);font-size:13.5px">${s.t}</b></div>
+    <div class="tour-body">${s.b}</div>
+    <div class="tour-nav">
+      <button class="btn sm" id="t-prev" ${tourStep === 0 ? "disabled" : ""}>Back</button>
+      <button class="btn sm primary" id="t-next" ${tourStep === TOUR.length - 1 ? "disabled" : ""}>Next</button>
+      <span class="count">${tourStep + 1} / ${TOUR.length}</span>
+    </div>`;
+  document.getElementById("t-prev").addEventListener("click", () => gotoStep(tourStep - 1));
+  document.getElementById("t-next").addEventListener("click", () => gotoStep(tourStep + 1));
+}
+
+/* ---------- top-level render ---------- */
+function compute() { R = runApply(S); }
+// Full re-render.
+function render() { compute(); renderTour(); renderFlags(); renderCli(); renderStats(); renderPipe(); renderTabs(); renderPanes(); }
+// Lightweight re-render while typing in an input.
+function refresh() { compute(); renderCli(); renderStats(); renderPipe(); renderTabs(); refreshPaneViews(); }
+
+document.getElementById("reset").addEventListener("click", () => gotoStep(0));
+// #step-N deep-links into the tour (the tutorial links here).
+const m = /^#step-(\d+)$/.exec(location.hash);
+gotoStep(m ? Math.min(Math.max(+m[1], 1), TOUR.length) - 1 : 0);
+</script>
