@@ -2,6 +2,10 @@
 -- 02-graph.sql — what the store derives from the facts: link validation,
 -- dangling-edge attachment, single-valued link precedence, property merging,
 -- ownership resolution and flattened membership.
+--
+-- Changing the schema? Update demos/data-store/index.html (the schema page)
+-- and docs/data-store/reference.md in the same change. ./demo.sh test fails
+-- while the page and the database disagree.
 -- =============================================================================
 
 set role catalog_owner;

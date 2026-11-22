@@ -178,7 +178,7 @@
     <div class="eyebrow">int32ltd / platform</div>
     <h1>Platform demos</h1>
     <p class="lede">Working models of a vendor-neutral internal developer platform. Change who owns what, swap the vendor, edit the contract, and watch every decision downstream recalculate.</p>
-    <div class="meta"><span>two run in your browser</span><span>one runs on a local kind cluster</span><span>no vendor accounts</span></div>
+    <div class="meta"><span>runs in your browser</span><span>no install</span><span>no network calls</span></div>
   </div>
 </header>
 
@@ -272,7 +272,7 @@
       </article>
 
       <article class="demo">
-        <a class="art" href="https://github.com/int32ltd/platform/tree/main/demos/data-store" tabindex="-1" aria-hidden="true">
+        <a class="art" href="data-store/index.html" tabindex="-1" aria-hidden="true">
           <svg viewBox="0 0 440 170" role="presentation">
             <g transform="translate(20,16)">
               <rect class="nd" x="0" y="0" width="112" height="62" rx="2"/>
@@ -303,16 +303,17 @@
         </a>
         <div class="bd">
           <div class="eyebrow">Demo 3 · data store</div>
-          <h2><a href="https://github.com/int32ltd/platform/tree/main/demos/data-store">Catalog Data Store</a></h2>
-          <p>The catalog's real PostgreSQL schema, running in its own Kubernetes namespace and seeded with the ownership explorer's graph. A SQL walkthrough changes the graph and shows the derived ownership, access and history after every step.</p>
+          <h2><a href="data-store/index.html">Catalog Data Store Schema</a></h2>
+          <p>The PostgreSQL schema behind the catalog: every table, view and function, what writes each one, and why it is shaped that way. The same schema runs for real on a local kind cluster, with a SQL walkthrough.</p>
           <ul>
-            <li>Query one resource assembled from four sources</li>
-            <li>Ask who owns an RDS instance, and see the path</li>
-            <li>Break a sync and watch the guard hold the run</li>
+            <li>Follow a write from ingest to the change log</li>
+            <li>See how ownership and membership are derived</li>
+            <li>Find the one view that decides visibility</li>
           </ul>
-          <div class="tags"><span class="tag">PostgreSQL 18</span><span class="tag">kind + kubectl</span><span class="tag">outbox</span><span class="tag">11-step walkthrough</span></div>
+          <div class="tags"><span class="tag">PostgreSQL 18</span><span class="tag">schema</span><span class="tag">outbox</span><span class="tag">8-step tour</span></div>
           <div class="actions">
-            <a class="btn" href="https://github.com/int32ltd/platform/tree/main/demos/data-store">Run it</a>
+            <a class="btn" href="data-store/index.html">Open demo</a>
+            <a class="link" href="https://github.com/int32ltd/platform/tree/main/demos/data-store">Run on kind</a>
             <a class="link" href="https://github.com/int32ltd/platform/blob/main/docs/data-store/tutorial.md">Tutorial</a>
             <a class="link" href="https://github.com/int32ltd/platform/blob/main/docs/data-store/reference.md">Reference</a>
             <a class="link" href="https://github.com/int32ltd/platform/blob/main/docs/data-store/explanation.md">Explanation</a>
@@ -329,7 +330,7 @@
       </section>
       <section>
         <h3>What these are not</h3>
-        <p>Nothing here calls a real vendor. The browser demos model the data flow and boundaries of the design, not its runtime; the data store runs the real schema, but on a throwaway database with a made-up organisation. The <a href="https://github.com/int32ltd/platform/blob/main/docs/platform-abstraction/explanation.md">explanation</a> covers what the real systems add.</p>
+        <p>Nothing here calls a real vendor or touches real infrastructure. Each demo models the data flow and boundaries of the design, not its runtime; the data store's schema can also run on a throwaway local database. The <a href="https://github.com/int32ltd/platform/blob/main/docs/platform-abstraction/explanation.md">explanation</a> covers what the real systems add.</p>
       </section>
     </div>
   </div>

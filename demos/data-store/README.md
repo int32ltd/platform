@@ -7,6 +7,10 @@ identity groups, three teams, two systems, three components, six pieces of
 infrastructure). Every fact in the seed arrives through `catalog.ingest` from
 the source that owns it.
 
+**[Open the schema page](./index.html)** (`index.html`, in a browser, no setup)
+for a visual guide to every table, view and function, what writes each one,
+and the logic behind it, with a guided tour. Running the database itself:
+
 Needs `kubectl` and a Kubernetes cluster; a local kind cluster is enough.
 Everything runs in the `catalog-data-store` namespace (one `postgres:18.2-trixie`
 pod, data in an `emptyDir`), and nothing outside it is touched.
@@ -14,7 +18,8 @@ pod, data in an `emptyDir`), and nothing outside it is touched.
 ```
 ./demo.sh up            # deploy k8s.yaml, recreate the catalog database, load sql/*.sql
 ./demo.sh walkthrough   # the guided tour: 11 steps, prints SQL and results
-./demo.sh test          # invariant checks, in a rolled-back transaction
+./demo.sh test          # invariant checks (rolled back), then check-page
+./demo.sh check-page    # does index.html match the live schema?
 ./demo.sh psql          # explore by hand
 ./demo.sh down          # delete the namespace; nothing persists
 ```
@@ -33,7 +38,8 @@ covers the same steps with commentary.
 | [`sql/03-write.sql`](./sql/03-write.sql) | `ingest`, `retract`, full-sync runs and sweep, outbox polling, `define_kind` / `define_source` |
 | [`sql/04-access.sql`](./sql/04-access.sql) | the viewer functions, `api.*` views and functions, `authz.fga_tuples`, privileges |
 | [`sql/05-seed.sql`](./sql/05-seed.sql) | kinds, sources and the worked graph |
-| [`walkthrough.sql`](./walkthrough.sql) | the guided tour |
+| [`index.html`](./index.html) | the schema page: diagram, columns, logic, guided tour. Renders from its embedded `schema-data` JSON |
+| [`walkthrough.sql`](./walkthrough.sql) | the guided SQL tour |
 | [`test.sql`](./test.sql) | invariant checks, including the OpenFGA consistency check |
 | [`k8s.yaml`](./k8s.yaml) | namespace, Postgres 18 StatefulSet (emptyDir) and Service |
 | [`demo.sh`](./demo.sh) | deploy, load, run and connect, using `kubectl` |
@@ -57,3 +63,25 @@ table authz.fga_tuples;
 For a GUI client, forward the port:
 `kubectl -n catalog-data-store port-forward svc/postgres 5433:5432`, then
 connect to `postgres://postgres:postgres@127.0.0.1:5433/catalog`.
+
+## Keeping the schema page current
+
+`index.html` must describe exactly the schema in `sql/`. This is a
+requirement, not a nicety: when a change adds, removes, renames or retypes a
+table, view, column or function, update in the same change:
+
+1. the `schema-data` JSON block in `index.html`:
+   - **`tables`**: the object, its columns with the exact type Postgres
+     reports (`timestamp with time zone`, `text[]`, enum names), keys, and its
+     `purpose`, `rules`, `indexes`, `writtenBy` and `readBy`;
+   - **`functions`**: the signature, what it does, and the tables it touches;
+   - **`edges`**: foreign keys and derivations it adds or removes;
+   - **`tour`**: any step whose explanation the change affects;
+2. [`docs/data-store/reference.md`](../../docs/data-store/reference.md).
+
+`./demo.sh check-page` (also run by `./demo.sh test`) compares every table,
+view, column type and function in the database with the page, and fails with
+a diff while they disagree. It also fails if the page refers to an object that
+doesn't exist. It can't see a logic change that leaves the shape alone, such
+as a new rule inside a function body, so for those, update the page's text by
+hand.

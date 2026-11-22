@@ -23,6 +23,10 @@ Contents:
 
 Target: PostgreSQL 18. No extensions are required.
 
+A visual version of this page is the
+[schema page](../../demos/data-store/index.html). The two are updated together
+with every schema change.
+
 ---
 
 ## Concept map
