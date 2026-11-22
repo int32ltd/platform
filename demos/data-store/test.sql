@@ -32,60 +32,8 @@ do $$ begin
     'authz.user_team is stale';
 end $$;
 
--- ---------------------------------------------------------------------------
--- The nightly consistency check: evaluate the OpenFGA model (reference.md,
--- Authorization model) over authz.fga_tuples, independently of the SQL rule,
--- and compare can_view for every user and every non-identity resource.
-\echo 'OpenFGA model over the tuples agrees with api.resource for every user'
-create temporary table fga_view as
-with recursive t as (select * from authz.fga_tuples),
-group_member (grp, usr) as (
-  select object, subject from t where relation = 'member' and subject like 'user:%'
-  union
-  select t.object, gm.usr from t join group_member gm on t.subject = gm.grp || '#member'
-   where t.relation = 'member'),
-team_member (team, usr) as (
-  select t.object, gm.usr from t join group_member gm on gm.grp = t.subject where t.relation = 'backed_by'),
-platform_role (role, usr) as (
-  select relation, subject from t where object = 'platform:default' and subject like 'user:%'
-  union
-  select t.relation, gm.usr from t join group_member gm on t.subject = gm.grp || '#member'
-   where t.object = 'platform:default'),
-users as (select ref as usr from catalog.resource where kind = 'user' and deleted_at is null),
-resources as (select distinct object, subject as kind from t where relation = 'kind' and object like 'resource:%')
-select u.usr, regexp_replace(r.object, '^resource:([^/]+)/', '\1:') as ref
-  from users u cross join resources r
- where exists (select 1 from t join team_member tm on tm.team = t.subject
-                where t.object = r.object and t.relation = 'owner' and tm.usr = u.usr)
-    or exists (select 1 from t where t.object = r.kind and t.relation = 'org_viewer' and t.subject = 'user:*')
-    or exists (select 1 from t
-                 left join team_member tm on t.subject = tm.team || '#member'
-                 left join group_member gm on t.subject = gm.grp || '#member'
-                where t.object = r.kind and t.relation = 'editor' and u.usr in (tm.usr, gm.usr))
-    or exists (select 1 from platform_role p where p.usr = u.usr and p.role in ('admin', 'auditor'));
-
-create temporary table sql_view (usr text, ref text);
-grant insert on sql_view to catalog_api;
-do $$
-declare u text;
-begin
-  for u in select ref from catalog.resource where kind = 'user' and deleted_at is null loop
-    perform set_config('catalog.viewer', u, true);
-    execute 'set local role catalog_api';
-    insert into sql_view select u, ref from api.resource where kind not in ('user', 'identity_group', 'team', 'platform');
-    execute 'reset role';
-  end loop;
-end $$;
-do $$
-declare d text;
-begin
-  select string_agg(format('%s %s %s', side, usr, ref), E'\n') into d from (
-    (select 'only-fga' as side, * from fga_view except select 'only-fga', * from sql_view)
-    union all
-    (select 'only-sql', * from sql_view except select 'only-sql', * from fga_view)) x;
-  assert (select count(*) from sql_view) > 20, 'consistency check compared almost nothing';
-  assert d is null, E'precomputed path and OpenFGA model disagree:\n' || d;
-end $$;
+-- (The comparison with OpenFGA lives in fga/drift.py, run by ./demo.sh test:
+-- it asks a real OpenFGA, rather than re-implementing the model here.)
 
 -- ---------------------------------------------------------------------------
 \echo 'owner-only kinds are invisible to non-owners; org kinds are redacted'

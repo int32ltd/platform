@@ -182,9 +182,32 @@ Example path: `aws_rds_instance:prod-checkout-db --component--> component:checko
 
 ## Authorization model
 
-The catalog stores the facts. **OpenFGA** evaluates the decision. The catalog
-API is the only writer of tuples and the only caller of `Check`/`ListObjects`;
-nothing else talks to OpenFGA directly.
+The catalog stores the facts. **Two evaluators** answer access questions from
+them, using one model, and each is authoritative for a different set of
+callers:
+
+| Evaluator | Authoritative for | Relations |
+|---|---|---|
+| **SQL rule** in the catalog database ([`api.resource`](../data-store/reference.md#apiresource), `authz.viewer_*`) | the catalog's own reads and writes: get, search, list, graph traversal, agent context, reports, manual edits | `can_view`, `can_view_sensitive`, `can_edit`, `can_transfer` |
+| **OpenFGA** | every other service: the platform API checking a capability request, action runners, gateways | every relation below, including `can_run_action` and `runner`, which exist only here |
+
+Rules that keep them one model rather than two:
+
+- **One writer of tuples.** The catalog's `openfga-sync` consumer is the only
+  writer. The tuple set is a projection of the graph
+  ([`authz.fga_tuples`](../data-store/reference.md#openfga-projection)), never
+  edited in OpenFGA directly.
+- **Ownership is resolved once.** Neither evaluator re-derives it: both read
+  `effectiveOwners` ([Ownership resolution](#ownership-resolution)).
+- **A model change is one pull request touching both.** It edits
+  [`demos/data-store/fga/model.fga`](../../demos/data-store/fga/model.fga) (the
+  block below is a copy, checked to be identical) and the SQL rule together.
+- **Drift is a failing build.** The drift check
+  ([data-store reference](../data-store/reference.md#drift-check)) evaluates
+  both over the same tuples for every user, resource and shared relation, and
+  runs in CI on every data-store change.
+
+The model, as loaded into OpenFGA from `demos/data-store/fga/model.fga`:
 
 ```
 model
@@ -194,7 +217,7 @@ type user
 
 type identity_group
   relations
-    define member: [user, identity_group#member]   # nested groups where the provider has them
+    define member: [user, identity_group#member]
 
 type team
   relations
@@ -204,35 +227,31 @@ type team
 type platform
   relations
     define admin: [user, identity_group#member]
-    define auditor: [user, identity_group#member]  # read everything, change nothing
+    define auditor: [user, identity_group#member]
 
 type kind
   relations
     define platform: [platform]
-    define org_viewer: [user:*]                 # present only when visibility: org
-    define editor: [team#member, identity_group#member]   # kind-wide grants (rare)
+    define org_viewer: [user:*]
+    define editor: [team#member, identity_group#member]
     define admin: admin from platform
+    define auditor: auditor from platform
 
 type resource
   relations
     define kind: [kind]
-    define owner: [team]                        # one tuple per effectiveOwner
+    define owner: [team]
     define owner_member: member from owner
-    define can_view: owner_member
-                     or org_viewer from kind
-                     or editor from kind
-                     or admin from kind
-                     or auditor from platform
-    define can_edit: owner_member
-                     or editor from kind
-                     or admin from kind
+    define can_view: owner_member or org_viewer from kind or editor from kind or admin from kind or auditor from kind
+    define can_view_sensitive: owner_member or editor from kind or admin from kind or auditor from kind
+    define can_edit: owner_member or editor from kind or admin from kind
     define can_run_action: owner_member or admin from kind
-    define can_transfer: admin from kind   # moving ownership is a privileged write
+    define can_transfer: admin from kind
 
 type action
   relations
     define kind: [kind]
-    define runner: [team#member, identity_group#member]   # optional narrowing, see Self-service actions
+    define runner: [team#member, identity_group#member]
 ```
 
 Tuples written by the catalog, from the example in [Resources](#resources):
@@ -271,14 +290,18 @@ payments sees its on-call rota and cost" work without per-resource rules.
 
 ## Enforcement points
 
-| Path | Check |
-|---|---|
-| `GET /resources/{id}` | `Check(user, can_view, resource)` |
-| Search / list / graph traversal | `ListObjects(user, can_view, resource)` intersected with the query; for large tenants, the query layer instead filters on `effectiveOwners ∩ userTeams` plus kind visibility, which is the same rule precomputed. Both paths exist; a consistency test compares them nightly. |
-| Write (manual edit, API) | `Check(user, can_edit, resource)`; ownership-changing writes need `can_transfer` |
-| Ingestion write | Source identity, not user identity. A `source` resource declares which kinds it may write and which properties it owns ([Merging and provenance](#merging-and-provenance)). |
-| Run action | `Check(user, can_run_action, resource)` and, if the action has `runner` tuples, `Check(user, runner, action)` |
-| Scorecard / report read | Same as resource read; reports aggregate only over resources the caller can view |
+| Path | Evaluator | Check |
+|---|---|---|
+| Catalog `GET /resources/{id}` | SQL | the row exists in `api.resource` for the viewer (`can_view`); sensitive properties need `can_view_sensitive` |
+| Catalog search / list / graph traversal / agent context | SQL | filtered inside the query by `api.resource`, never by per-row OpenFGA calls |
+| Catalog write (manual edit, API) | SQL | `can_edit`; changing an owner or any privileged (access-granting) link also needs `can_transfer` |
+| Ingestion write | — | Source identity, not user identity. A `source` resource declares which kinds it may write and which properties it owns ([Merging and provenance](#merging-and-provenance)). |
+| Scorecard / report read | SQL | same as search; reports aggregate only over resources the caller can view |
+| Run action | OpenFGA | `Check(user, can_run_action, resource)` and, if the action has `runner` tuples, `Check(user, runner, action)`, by the action service |
+| Any other service (platform API, gateways) | OpenFGA | `Check` / `ListObjects` on the relation it needs; never a query against the catalog database |
+
+The two evaluators must give the same answer wherever both answer. That is
+proven, not assumed: see the drift check.
 
 ## Group membership freshness
 

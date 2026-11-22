@@ -380,10 +380,12 @@ nothing about resources she cannot see.
 ```
 
 This runs [`test.sql`](../../demos/data-store/test.sql) in a rolled-back
-transaction. Among other things, it evaluates the OpenFGA model over
-`authz.fga_tuples` independently and checks that it agrees with
-`api.resource` for every user. That is the nightly consistency check the
-catalog reference calls for.
+transaction, checks that the schema pages match the database, and runs the
+drift check. The drift check asks OpenFGA (deployed alongside Postgres) the
+same questions the SQL rule answers, for every user and resource, and fails if
+they disagree. Try breaking it: give a team member access in the database
+without syncing, then run `./demo.sh drift` to see the drift, and
+`./demo.sh drift --apply` to repair it.
 
 When you are done, `./demo.sh down` deletes the namespace.
 

@@ -55,3 +55,46 @@ spec:
   selector: { app: postgres }
   ports:
     - { name: postgres, port: 5432, targetPort: postgres }
+---
+# OpenFGA, the decision service for everything outside the catalog database.
+# In-memory datastore: the demo reloads it from authz.fga_tuples
+# (`fga/drift.py sync`). The image is a static Go binary on Wolfi (glibc).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openfga
+  namespace: catalog-data-store
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: openfga }
+  template:
+    metadata:
+      labels: { app: openfga }
+    spec:
+      containers:
+        - name: openfga
+          image: docker.io/openfga/openfga:v1.22.1
+          args: ["run"]
+          env:
+            - { name: OPENFGA_DATASTORE_ENGINE, value: memory }
+            - { name: OPENFGA_PLAYGROUND_ENABLED, value: "false" }
+            - { name: OPENFGA_LOG_LEVEL, value: warn }
+          ports:
+            - { name: http, containerPort: 8080 }
+          readinessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 2
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { memory: 512Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: openfga
+  namespace: catalog-data-store
+spec:
+  selector: { app: openfga }
+  ports:
+    - { name: http, port: 8080, targetPort: http }

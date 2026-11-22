@@ -54,6 +54,7 @@ map onto database objects.
 | Group membership, team backing groups | `members` and `backedBy` links |
 | Platform admin / auditor | `admins` / `auditors` links from the resource `platform:default` |
 | Kind editor grant | `editors` links from the kind's resource (`kind:<id>`) |
+| OpenFGA model | [`demos/data-store/fga/model.fga`](../../demos/data-store/fga/model.fga), loaded by the sync and the drift check |
 | `effectiveOwners ∩ userTeams` query filter | `api.resource`, using `authz.user_team` |
 | OpenFGA tuples | `authz.fga_tuples` view |
 | `POST /context` | `api.context()` |
@@ -558,9 +559,55 @@ should have written to OpenFGA:
 | `platform:default#admin@…`, `#auditor@…` | `admins` / `auditors` links on `platform:default` (via `authz.access_grant`) |
 
 The `openfga-sync` consumer polls the change log, and after each batch writes
-the difference between this view and what it last wrote. The nightly
-consistency check evaluates the model over these tuples and compares `can_view`
-with `api.resource` for every user (the demo's `test.sql` does exactly this).
+the difference between this view and what it last wrote. A periodic full
+reconcile (the drift check with `--apply`) repairs anything an incremental
+sync missed.
+
+## Drift check
+
+The SQL rule and OpenFGA evaluate one model, and each is authoritative for
+different callers ([service catalog reference](../service-catalog/reference.md#authorization-model)).
+[`demos/data-store/fga/drift.py`](../../demos/data-store/fga/drift.py) proves
+they agree. It needs only `python3` (standard library) and `kubectl`.
+
+```
+./demo.sh drift            # report; exit 1 on drift
+./demo.sh drift --apply    # and repair what can be repaired
+./demo.sh test             # SQL invariants, check-page, then drift
+```
+
+| Check | Compares | Catches | `--apply` |
+|---|---|---|---|
+| 1. projections | `authz.user_team`, `user_role`, `user_kind_grant` with a fresh rebuild from links | a projection that missed a membership or grant change | rebuilds them |
+| 2. tuples | the long-lived OpenFGA store `catalog`, and its latest model, with `authz.fga_tuples` and `fga/model.fga` | sync lag or a sync bug: tuples missing or extra, stale model | writes the model, writes missing and deletes extra tuples |
+| 3. model | on a scratch store loaded with `authz.fga_tuples`: OpenFGA `Check` against `authz.access_matrix` for every live user, resource and shared relation; `ListObjects(can_view)` against the rows `api.resource` returns | the two evaluators disagreeing: a model edited without the SQL rule, or the reverse | nothing (a person must decide which side is wrong) |
+
+Check 3 uses a scratch store, so a stale long-lived store can neither hide nor
+fake a model difference.
+
+Shared relations, and how the SQL side answers them:
+
+| OpenFGA relation on `resource` | SQL answer |
+|---|---|
+| `can_view` | the row is in `api.resource` (`access_matrix.can_view`) |
+| `can_view_sensitive` | `api.resource.sensitive_visible` (`access_matrix.sees_sensitive`) |
+| `can_edit` | `authz.viewer_can_edit` |
+| `can_transfer` | `authz.viewer_can_transfer` |
+
+The report also prints this **coverage map**, read from the model. A relation
+on `resource` that is neither compared nor declared one-sided (in
+`drift.py`'s `ONE_SIDED`, today `can_run_action`) is flagged, so a new
+relation can't silently go unchecked.
+
+**Known differences**, probed on every run and reported as warnings, not
+failures:
+
+| Difference | Why it is accepted |
+|---|---|
+| OpenFGA grants `org`-visible kinds to `user:*`, so an unknown or deleted user passes `can_view`; the SQL rule shows nothing to a viewer that is not a live `user` resource | callers of OpenFGA pass only authenticated, existing users; offboarding removes membership tuples, which is what protects owner-only resources |
+
+The demo also checks that the model block in the service catalog reference is
+byte-for-byte `fga/model.fga` (`./demo.sh check-page`).
 
 ## Invariants
 
@@ -568,8 +615,8 @@ Checked by [`demos/data-store/test.sql`](../../demos/data-store/test.sql):
 
 1. `effective_owners = resolve_owners(id)` for every live resource.
 2. `authz.user_team` equals a fresh rebuild.
-3. The OpenFGA model over `authz.fga_tuples` and `api.resource` agree on
-   `can_view` for every user and every non-identity resource.
+3. Moved to the [drift check](#drift-check): OpenFGA and the SQL rule agree
+   on every shared relation for every user and resource.
 4. Owner-only resources are invisible to non-owners; `org` resources are listed
    with sensitive properties, their provenance and their history values
    redacted; no viewer, or an unknown or tombstoned one, sees nothing.

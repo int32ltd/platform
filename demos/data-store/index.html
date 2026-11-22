@@ -643,7 +643,7 @@
       "indexes": ["primary key (user_ref, team_ref)", "user_team_team (team_ref)"],
       "rules": [
         "Rebuilt in the same transaction as any change to a privileged link (<code>members</code>, <code>backedBy</code>, <code>admins</code>, <code>auditors</code>, <code>editors</code>), so offboarding takes effect when the delta sync commits.",
-        "Never written by hand. The nightly consistency check compares the result with OpenFGA's evaluation of the tuples."
+        "Never written by hand. The drift check (<code>./demo.sh drift</code>, in CI) compares it with a fresh rebuild, and the database's decisions with OpenFGA's."
       ],
       "writtenBy": ["authz.refresh_memberships"],
       "readBy": ["authz.viewer_teams"]
