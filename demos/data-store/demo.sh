@@ -2,15 +2,21 @@
 # Run the catalog data-store demo in its own namespace on the current
 # Kubernetes cluster (a local kind cluster is enough).
 #
-#   ./demo.sh up            deploy Postgres 18 (k8s.yaml), (re)create the
-#                           `catalog` database and load sql/*.sql
+#   ./demo.sh up            deploy Postgres 18 and OpenFGA (k8s.yaml), (re)create
+#                           the `catalog` database, load sql/*.sql, and load
+#                           OpenFGA from authz.fga_tuples
 #   ./demo.sh walkthrough   run the guided walkthrough (walkthrough.sql)
 #   ./demo.sh test          run the invariant checks (test.sql, rolled back),
-#                           then check-page
+#                           then check-page, then drift
+#   ./demo.sh drift [--apply]
+#                           compare the two authorization evaluators: SQL rule
+#                           vs OpenFGA (fga/drift.py); --apply repairs
+#                           projections and the OpenFGA store
 #   ./demo.sh check-page    check that index.html (the schema page) lists exactly
 #                           the tables, views, columns, types and functions
 #                           the database has, and that flows.html only names
-#                           objects that exist
+#                           objects that exist, and that the model in the docs
+#                           is fga/model.fga
 #   ./demo.sh psql          interactive psql in the catalog database
 #   ./demo.sh down          delete the catalog-data-store namespace
 #
@@ -116,8 +122,25 @@ for sc in flows["scenarios"]:
 print("flows page refers only to real objects (%d scenarios, %d steps)" % (len(flows["scenarios"]), steps))
 '
 
+# The OpenFGA model is shown in docs/service-catalog/reference.md. That copy
+# must be byte-for-byte fga/model.fga, the file OpenFGA actually loads.
+MODEL_DOC=../../docs/service-catalog/reference.md
+MODEL_PY='
+import re, sys
+doc, model = open(sys.argv[1]).read(), open(sys.argv[2]).read()
+blocks = [b for b in re.findall(r"```[a-z]*\n(.*?)```", doc, re.S) if b.startswith("model\n")]
+if len(blocks) != 1:
+    sys.exit("%s: expected exactly one OpenFGA model block, found %d" % (sys.argv[1], len(blocks)))
+if blocks[0] != model:
+    import difflib
+    sys.stdout.writelines(difflib.unified_diff(model.splitlines(True), blocks[0].splitlines(True), "fga/model.fga", sys.argv[1]))
+    sys.exit("the OpenFGA model in %s differs from fga/model.fga: copy the file into the doc" % sys.argv[1])
+print("OpenFGA model in the docs matches fga/model.fga")
+'
+
 check_page() {
   command -v python3 >/dev/null || { echo 'check-page needs python3'; exit 1; }
+  python3 -I -c "$MODEL_PY" "$MODEL_DOC" fga/model.fga
   tmp=$(mktemp -d)
   pod_psql "$DB" -At -c "$LIVE_SQL" | LC_ALL=C sort > "$tmp/live"
   python3 -I -c "$PAGE_PY" < index.html > "$tmp/page"
@@ -146,12 +169,15 @@ case "${1:-}" in
       printf 'loading %s\n' "$f"
       pod_psql "$DB" < "$f" >/dev/null
     done
-    echo "ready: $NS/$POD, database $DB"
+    kubectl -n "$NS" rollout status deployment/openfga --timeout=180s >/dev/null
+    python3 -I fga/drift.py sync | tail -1
+    echo "ready: $NS/$POD (database $DB) and $NS/openfga"
     ;;
   walkthrough) pod_psql "$DB" < walkthrough.sql ;;
-  test)        pod_psql "$DB" < test.sql && check_page ;;
+  test)        pod_psql "$DB" < test.sql && check_page && python3 -I fga/drift.py check ;;
+  drift)       shift; python3 -I fga/drift.py check "$@" ;;
   check-page)  check_page ;;
   psql)        kubectl -n "$NS" exec -it "$POD" -- psql -U postgres -d "$DB" ;;
   down)        kubectl delete namespace "$NS" ;;
-  *)           sed -n '2,17p' "$0"; exit 1 ;;
+  *)           sed -n '2,23p' "$0"; exit 1 ;;
 esac

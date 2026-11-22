@@ -19,6 +19,7 @@ Contents:
 - [People and grants are resources and links](#people-and-grants-are-resources-and-links)
 - [Membership is flattened, but only as a projection](#membership-is-flattened-but-only-as-a-projection)
 - [Visibility lives in one view, not in row-level security](#visibility-lives-in-one-view-not-in-row-level-security)
+- [Two evaluators, one model](#two-evaluators-one-model)
 - [The viewer is a session setting](#the-viewer-is-a-session-setting)
 - [Writes go through functions](#writes-go-through-functions)
 - [The change log is the outbox](#the-change-log-is-the-outbox)
@@ -212,10 +213,10 @@ Walking nested groups per request is exactly the cost the catalog exists to
 avoid. So `authz.user_team` (and `user_role`, `user_kind_grant`) are projections,
 rebuilt by `authz.refresh_memberships()` in the same transaction as any change
 to a privileged link (`members`, `backedBy`, `admins`, `auditors`, `editors`).
-They are the database's copy of what OpenFGA computes from the same tuples. They are never written by hand, and the nightly
-consistency check, which evaluates the OpenFGA model over `authz.fga_tuples` and
-compares it with `api.resource` for every user, catches any drift between the
-two.
+They are the database's copy of what OpenFGA computes from the same tuples.
+They are never written by hand, and the
+[drift check](./reference.md#drift-check) compares them with a fresh rebuild
+and the database's decisions with OpenFGA's.
 
 Doing this in-transaction means a removal in the identity provider stops
 granting access as soon as the next delta sync commits. That keeps the
@@ -254,6 +255,50 @@ redacts diffs, and `api.who_owns` masks path steps that fail it. The views are
 `security_barrier`, so a caller's own `where` clause cannot run a leaky
 function over rows the predicate would have removed. The viewer-derived sets
 are computed once per query in a materialised CTE, not once per row.
+
+## Two evaluators, one model
+
+The database's visibility rule and OpenFGA answer the same questions. That
+overlap is deliberate, and it is bounded.
+
+**Why both.** The catalog's own reads must be filtered inside the SQL query:
+search, lists, graph traversal and agent context all combine the permission
+filter with other predicates, joins and paging. Asking OpenFGA per row, or
+intersecting a full `ListObjects` result with a filtered page, does not scale.
+Everything else on the platform (the platform API checking a capability
+request, action runners, gateways) must not query the catalog database at
+all. It needs a decision service, and OpenFGA is that service.
+
+**Who is authoritative where.**
+
+| | SQL rule | OpenFGA |
+|---|---|---|
+| Callers | the catalog API only | every other service |
+| Relations | `can_view`, `can_view_sensitive`, `can_edit`, `can_transfer` | all of them, plus `can_run_action` and action `runner` |
+| Input | the graph tables and `authz` projections | tuples from `authz.fga_tuples` |
+
+**What keeps it one model:**
+- **Ownership is resolved once.** Both evaluators read `effective_owners`, and
+  neither walks the inheritance graph.
+- **The tuples are a projection of the graph** written only by the catalog. Nobody
+  edits OpenFGA by hand.
+- **The model lives in one file,** `fga/model.fga`. The docs embed it verbatim,
+  and a check fails if the copy differs.
+- **A model change is one pull request** that edits that file and the SQL
+  rule together.
+- **The [drift check](./reference.md#drift-check) proves agreement.** It runs
+  every shared relation for every user and resource through both evaluators,
+  on the same tuples, in CI.
+
+What the overlap costs is maintenance: the rule is written twice, in two
+languages. The drift check turns that cost from a silent risk into a failing
+build, and its coverage map flags any relation added to one side only.
+
+Where the two deliberately differ, the drift check says so on every run
+instead of hiding it. Today there is one such difference: OpenFGA's `user:*`
+admits unknown principals to `org`-visible kinds, while the database shows a
+non-user viewer nothing. That is accepted because callers authenticate users
+before asking.
 
 ## The viewer is a session setting
 
@@ -376,6 +421,8 @@ Decided here:
   survive a second write path as triggers.
 - The change log doubles as the outbox, read by `(tx_id, id)` behind the
   snapshot horizon; Kafka is an optional relay.
+- Two evaluators of one model: the SQL rule for the catalog's own queries,
+  OpenFGA for every other service; a drift check in CI proves they agree.
 
 Open, needing a decision:
 

@@ -20,15 +20,17 @@ guided tour.
 
 Running the database itself:
 
-Needs `kubectl` and a Kubernetes cluster; a local kind cluster is enough.
-Everything runs in the `catalog-data-store` namespace (one `postgres:18.2-trixie`
-pod, data in an `emptyDir`), and nothing outside it is touched.
+Needs `kubectl`, `python3` and a Kubernetes cluster; a local kind cluster is
+enough. Everything runs in the `catalog-data-store` namespace (a
+`postgres:18.2-trixie` pod with data in an `emptyDir`, and OpenFGA with an
+in-memory store), and nothing outside it is touched.
 
 ```
 ./demo.sh up            # deploy k8s.yaml, recreate the catalog database, load sql/*.sql
 ./demo.sh walkthrough   # the guided tour: 11 steps, prints SQL and results
 ./demo.sh test          # invariant checks (rolled back), then check-page
 ./demo.sh check-page    # does index.html match the live schema?
+./demo.sh drift         # do OpenFGA and the SQL rule agree? (--apply repairs)
 ./demo.sh psql          # explore by hand
 ./demo.sh down          # delete the namespace; nothing persists
 ```
@@ -50,7 +52,9 @@ covers the same steps with commentary.
 | [`index.html`](./index.html) | the schema page: diagram, columns, origins, logic, guided tour. Renders from its embedded `schema-data` JSON |
 | [`flows.html`](./flows.html) | "How it works": worked scenarios with the rows each step writes. Renders from its embedded `flow-data` JSON |
 | [`walkthrough.sql`](./walkthrough.sql) | the guided SQL tour |
-| [`test.sql`](./test.sql) | invariant checks, including the OpenFGA consistency check |
+| [`test.sql`](./test.sql) | invariant checks of the store itself |
+| [`fga/model.fga`](./fga/model.fga) | the OpenFGA model: the single copy, embedded verbatim in the service catalog reference |
+| [`fga/drift.py`](./fga/drift.py) | the drift check between OpenFGA and the SQL rule; also the reference full-reconcile sync |
 | [`k8s.yaml`](./k8s.yaml) | namespace, Postgres 18 StatefulSet (emptyDir) and Service |
 | [`demo.sh`](./demo.sh) | deploy, load, run and connect, using `kubectl` |
 

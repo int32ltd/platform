@@ -1,0 +1,58 @@
+name: Data store
+
+# Runs the catalog data-store demo on a throwaway kind cluster and fails the
+# build if any of these break:
+#   - the SQL invariants (test.sql)
+#   - the schema page, the flows page, or the model copy in the docs falling
+#     out of step with the schema (check-page)
+#   - drift between the two authorization evaluators: the SQL rule and
+#     OpenFGA (fga/drift.py)
+#   - the guided walkthrough
+
+on:
+  pull_request:
+    paths:
+      - 'demos/data-store/**'
+      - 'docs/data-store/**'
+      - 'docs/service-catalog/reference.md'
+      - '.github/workflows/data-store.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'demos/data-store/**'
+      - 'docs/data-store/**'
+      - 'docs/service-catalog/reference.md'
+      - '.github/workflows/data-store.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Create kind cluster
+        uses: helm/kind-action@v1.15.2
+
+      - name: Deploy Postgres and OpenFGA, load schema and seed
+        run: demos/data-store/demo.sh up
+
+      - name: Invariants, page checks and drift check
+        run: demos/data-store/demo.sh test
+
+      - name: Walkthrough on a fresh database
+        run: |
+          demos/data-store/demo.sh up
+          demos/data-store/demo.sh walkthrough > walkthrough.log
+          tail -n 3 walkthrough.log
+
+      - name: Diagnostics on failure
+        if: failure()
+        run: |
+          kubectl -n catalog-data-store get pods -o wide || true
+          kubectl -n catalog-data-store logs statefulset/postgres --tail=100 || true
+          kubectl -n catalog-data-store logs deployment/openfga --tail=100 || true

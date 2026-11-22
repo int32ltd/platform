@@ -1,0 +1,42 @@
+model
+  schema 1.1
+
+type user
+
+type identity_group
+  relations
+    define member: [user, identity_group#member]
+
+type team
+  relations
+    define backed_by: [identity_group]
+    define member: member from backed_by
+
+type platform
+  relations
+    define admin: [user, identity_group#member]
+    define auditor: [user, identity_group#member]
+
+type kind
+  relations
+    define platform: [platform]
+    define org_viewer: [user:*]
+    define editor: [team#member, identity_group#member]
+    define admin: admin from platform
+    define auditor: auditor from platform
+
+type resource
+  relations
+    define kind: [kind]
+    define owner: [team]
+    define owner_member: member from owner
+    define can_view: owner_member or org_viewer from kind or editor from kind or admin from kind or auditor from kind
+    define can_view_sensitive: owner_member or editor from kind or admin from kind or auditor from kind
+    define can_edit: owner_member or editor from kind or admin from kind
+    define can_run_action: owner_member or admin from kind
+    define can_transfer: admin from kind
+
+type action
+  relations
+    define kind: [kind]
+    define runner: [team#member, identity_group#member]

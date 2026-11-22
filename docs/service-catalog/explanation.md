@@ -169,9 +169,21 @@ resource-level ACLs. Changing who can see or edit a service means changing a
 link (move the service to another team, add a group behind the team),
 which is itself an audited catalog write.
 
-The catalog stores the facts. **OpenFGA** evaluates the decision. The catalog
-API is the only writer of tuples and the only caller of `Check`/`ListObjects`;
-nothing else talks to OpenFGA directly.
+The catalog stores the facts. Two evaluators make decisions from them, with
+one model and split authority. The catalog database evaluates the rule
+itself for the catalog's own queries, because search, lists and graph
+traversal have to be filtered inside the query: calling OpenFGA per row, or
+intersecting a full `ListObjects` result with a filtered, paged search, does
+not scale. **OpenFGA** is the decision service for every other component of
+the platform, which should never query the catalog database to ask "may this
+user do that?".
+
+Two evaluators of one model can drift apart, so the design treats agreement as
+something to prove. The catalog is the only writer of tuples, ownership is
+resolved once and consumed by both, the model lives in one file that the
+docs copy verbatim, and a drift check compares both evaluators over the same
+tuples for every user and resource in CI
+([reference](./reference.md#authorization-model)).
 
 ## Owner-only visibility and what it costs
 
@@ -246,6 +258,9 @@ Decided in this document:
 - Default visibility is owner-only, with per-kind `org` visibility and
   property-level redaction as the escape hatch.
 - Agents act on behalf of users; no catalog-wide service identity for agents.
+- Two evaluators, one model: the SQL rule is authoritative for the catalog's
+  own queries, OpenFGA for every other service; a drift check in CI proves
+  they agree.
 - Postgres-backed catalog service rather than DataHub as the store.
 
 Open, needing a decision from the platform owners:

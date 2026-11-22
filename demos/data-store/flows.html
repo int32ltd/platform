@@ -539,7 +539,7 @@
         {
           "title": "Carol asks again, and OpenFGA agrees",
           "on": ["viewer", "service", "api", "ukg"], "edges": ["e2", "e5"],
-          "body": "<p>Now <code>gcp_bucket</code> is one of Carol's readable and privileged kinds, so she sees the bucket in full and can edit it. She cannot transfer it: moving ownership stays admin-only.</p><p>OpenFGA gets the same fact as a tuple. Every night the consistency check evaluates the model over these tuples for every user and compares the result with <code>api.resource</code>.</p>",
+          "body": "<p>Now <code>gcp_bucket</code> is one of Carol's readable and privileged kinds, so she sees the bucket in full and can edit it. She cannot transfer it: moving ownership stays admin-only.</p><p>OpenFGA gets the same fact as a tuple. The drift check (<code>./demo.sh drift</code>, run in CI) asks OpenFGA and the SQL rule the same questions for every user and resource, and fails the build if they disagree.</p>",
           "cards": [
             { "type": "decision", "title": "api.resource for user:carol", "note": "after the grant",
               "cols": ["check", "value", "result"],
