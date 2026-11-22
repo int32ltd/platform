@@ -515,3 +515,7 @@ users/groups, ~10k changes/minute at ingestion peaks. Postgres handles this
 comfortably on one primary with read replicas for the query path.
 
 Why Postgres and not DataHub: [explanation.md](./explanation.md#why-postgres-and-not-datahub).
+
+The full schema (tables, functions, views, roles) is specified in
+[`../data-store/reference.md`](../data-store/reference.md) and runs in
+[`demos/data-store/`](../../demos/data-store/).

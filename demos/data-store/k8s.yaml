@@ -1,0 +1,57 @@
+# A dedicated, throwaway PostgreSQL 18 for the data-store demo.
+#
+#   kubectl apply -f k8s.yaml        (./demo.sh up does this)
+#   kubectl delete namespace catalog-data-store
+#
+# Data lives in an emptyDir: deleting the pod or the namespace resets it.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: catalog-data-store
+  labels:
+    app.kubernetes.io/part-of: catalog-data-store-demo
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: catalog-data-store
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels: { app: postgres }
+  template:
+    metadata:
+      labels: { app: postgres }
+    spec:
+      containers:
+        - name: postgres
+          image: docker.io/postgres:18.2-trixie   # Debian (glibc), pinned minor
+          env:
+            - { name: POSTGRES_USER, value: postgres }
+            - { name: POSTGRES_PASSWORD, value: postgres }   # demo only; not exposed outside the cluster
+            - { name: POSTGRES_DB, value: postgres }
+          ports:
+            - { name: postgres, containerPort: 5432 }
+          readinessProbe:
+            exec: { command: ["pg_isready", "-U", "postgres", "-d", "postgres"] }
+            periodSeconds: 2
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { memory: 1Gi }
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/postgresql }
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: catalog-data-store
+spec:
+  selector: { app: postgres }
+  ports:
+    - { name: postgres, port: 5432, targetPort: postgres }

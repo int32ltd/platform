@@ -7,6 +7,7 @@ document answers one kind of question:
 |---|---|---|---|---|
 | [**Platform abstraction**](./platform-abstraction/) | [tutorial.md](./platform-abstraction/tutorial.md) | [how-to-guides.md](./platform-abstraction/how-to-guides.md) | [reference.md](./platform-abstraction/reference.md) | [explanation.md](./platform-abstraction/explanation.md) |
 | [**Service catalog**](./service-catalog/) | the [ownership demo](../demos/service-catalog-ownership/) | — | [reference.md](./service-catalog/reference.md) | [explanation.md](./service-catalog/explanation.md) |
+| [**Data store**](./data-store/) | [tutorial.md](./data-store/tutorial.md) | — | [reference.md](./data-store/reference.md) | [explanation.md](./data-store/explanation.md) |
 
 **Platform abstraction** is the overall design: how every capability is
 exposed through a vendor-neutral contract, with a binding policy choosing the
@@ -15,6 +16,9 @@ vendor and an ownership graph deciding access.
 **Service catalog** is the detailed design of that ownership graph (Layer 3):
 kinds, resources and links, access derived from identity groups, ingestion,
 and the query surface for agents.
+
+**Data store** is the PostgreSQL database behind the service catalog: tables,
+derivations, the permission-filtered read surface and the change log.
 
 Runnable demos live in [`../demos/`](../demos/), not here. Docs link to them.
 

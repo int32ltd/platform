@@ -17,6 +17,7 @@ access in every tool by hand.
 | [`docs/`](./docs/) | The design, one folder per topic, each written as a [Diátaxis](https://diataxis.fr) doc set. Start at the [docs index](./docs/README.md). |
 | [`docs/platform-abstraction/`](./docs/platform-abstraction/) | The overall design: tutorial, how-to guides, reference, explanation. |
 | [`docs/service-catalog/`](./docs/service-catalog/) | The detailed design of the service catalog: kinds, resources, links, identity-group-derived permissions, ingestion, agent query surface. |
+| [`docs/data-store/`](./docs/data-store/) | The PostgreSQL database behind the service catalog: tables, ownership and membership derivation, the permission-filtered read surface, the change log and outbox. |
 | [`demos/`](./demos/) | Runnable models of the designs, one folder per demo. See the [demos index](./demos/README.md). |
 
 ## Quick start
@@ -41,7 +42,9 @@ in a browser instead. It's the same simulation with every file editable.
 
 For the service catalog, open
 [`demos/service-catalog-ownership/index.html`](./demos/service-catalog-ownership/index.html)
-in a browser.
+in a browser. For the database behind it, run
+[`demos/data-store/`](./demos/data-store/) (needs a Kubernetes cluster, kind is enough):
+`./demo.sh up && ./demo.sh walkthrough`.
 
 ## Contributing
 

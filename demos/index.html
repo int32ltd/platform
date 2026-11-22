@@ -178,7 +178,7 @@
     <div class="eyebrow">int32ltd / platform</div>
     <h1>Platform demos</h1>
     <p class="lede">Working models of a vendor-neutral internal developer platform. Change who owns what, swap the vendor, edit the contract, and watch every decision downstream recalculate.</p>
-    <div class="meta"><span>runs in your browser</span><span>no install</span><span>no network calls</span></div>
+    <div class="meta"><span>two run in your browser</span><span>one runs on a local kind cluster</span><span>no vendor accounts</span></div>
   </div>
 </header>
 
@@ -271,16 +271,65 @@
         </div>
       </article>
 
+      <article class="demo">
+        <a class="art" href="https://github.com/int32ltd/platform/tree/main/demos/data-store" tabindex="-1" aria-hidden="true">
+          <svg viewBox="0 0 440 170" role="presentation">
+            <g transform="translate(20,16)">
+              <rect class="nd" x="0" y="0" width="112" height="62" rx="2"/>
+              <rect class="bar" x="0" y="0" width="112" height="16" fill="var(--surface-3)"/>
+              <text class="lbl" x="8" y="12">resource</text>
+              <text class="lbl" x="8" y="31">properties</text>
+              <text class="lbl" x="8" y="45">effective_owners</text>
+              <text class="lbl" x="8" y="58" style="fill:var(--ink-3)">… jsonb</text>
+              <rect class="nd" x="0" y="78" width="112" height="48" rx="2"/>
+              <rect class="bar" x="0" y="78" width="112" height="16" fill="var(--surface-3)"/>
+              <text class="lbl" x="8" y="90">link</text>
+              <text class="lbl" x="8" y="109">from → to_ref</text>
+              <text class="lbl" x="8" y="122" style="fill:var(--ink-3)">per source</text>
+              <path class="e own" d="M112 31 C140 31 140 70 168 70"/>
+              <path class="e own" d="M112 102 C140 102 140 70 168 70"/>
+              <rect class="nd team" x="168" y="56" width="92" height="28" rx="2"/>
+              <text class="lbl" x="176" y="74">api.resource</text>
+              <path class="e inh" d="M260 62 H296"/>
+              <path class="e inh" d="M260 78 C278 78 278 104 296 104"/>
+              <rect class="nd" x="296" y="52" width="104" height="20" rx="2"/><text class="lbl" x="304" y="66">alice: full</text>
+              <rect class="nd" x="296" y="94" width="104" height="20" rx="2"/><text class="lbl" x="304" y="108">carol: redacted</text>
+              <rect class="nd" x="168" y="8" width="232" height="20" rx="2"/>
+              <rect class="bar" x="168" y="8" width="3" height="20" fill="var(--k8s)"/>
+              <text class="lbl" x="178" y="22">change_log → outbox → OpenFGA sync</text>
+              <path class="e" d="M112 12 H168"/>
+            </g>
+          </svg>
+        </a>
+        <div class="bd">
+          <div class="eyebrow">Demo 3 · data store</div>
+          <h2><a href="https://github.com/int32ltd/platform/tree/main/demos/data-store">Catalog Data Store</a></h2>
+          <p>The catalog's real PostgreSQL schema, running in its own Kubernetes namespace and seeded with the ownership explorer's graph. A SQL walkthrough changes the graph and shows the derived ownership, access and history after every step.</p>
+          <ul>
+            <li>Query one resource assembled from four sources</li>
+            <li>Ask who owns an RDS instance, and see the path</li>
+            <li>Break a sync and watch the guard hold the run</li>
+          </ul>
+          <div class="tags"><span class="tag">PostgreSQL 18</span><span class="tag">kind + kubectl</span><span class="tag">outbox</span><span class="tag">11-step walkthrough</span></div>
+          <div class="actions">
+            <a class="btn" href="https://github.com/int32ltd/platform/tree/main/demos/data-store">Run it</a>
+            <a class="link" href="https://github.com/int32ltd/platform/blob/main/docs/data-store/tutorial.md">Tutorial</a>
+            <a class="link" href="https://github.com/int32ltd/platform/blob/main/docs/data-store/reference.md">Reference</a>
+            <a class="link" href="https://github.com/int32ltd/platform/blob/main/docs/data-store/explanation.md">Explanation</a>
+          </div>
+        </div>
+      </article>
+
     </div>
 
     <div class="more">
       <section>
         <h3>Where to start</h3>
-        <p>Start with the <a href="platform-abstraction/index.html">flow demo</a> and its guided tour. It covers the whole design in eight steps. The catalog explorer goes deeper on one layer: who owns what and why.</p>
+        <p>Start with the <a href="platform-abstraction/index.html">flow demo</a> and its guided tour. It covers the whole design in eight steps. The catalog explorer goes deeper on one layer: who owns what and why. The data store shows that same layer as the PostgreSQL schema that would hold it.</p>
       </section>
       <section>
         <h3>What these are not</h3>
-        <p>Nothing here calls a real vendor or touches real infrastructure. Each demo models the data flow and boundaries of the design, not its runtime. The <a href="https://github.com/int32ltd/platform/blob/main/docs/platform-abstraction/explanation.md">explanation</a> covers what the real systems add.</p>
+        <p>Nothing here calls a real vendor. The browser demos model the data flow and boundaries of the design, not its runtime; the data store runs the real schema, but on a throwaway database with a made-up organisation. The <a href="https://github.com/int32ltd/platform/blob/main/docs/platform-abstraction/explanation.md">explanation</a> covers what the real systems add.</p>
       </section>
     </div>
   </div>
