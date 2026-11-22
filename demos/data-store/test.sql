@@ -37,7 +37,7 @@ end $$;
 
 -- ---------------------------------------------------------------------------
 \echo 'owner-only kinds are invisible to non-owners; org kinds are redacted'
-set local role catalog_api;
+set local role :"api_role";
 set local catalog.viewer = 'user:carol';
 do $$ begin
   assert not exists (select 1 from api.resource where ref = 'aws_rds_instance:prod-4711/checkout-db'),
@@ -62,7 +62,7 @@ reset role;
 
 -- ---------------------------------------------------------------------------
 \echo 'unowned resources are visible to platform admins only'
-set local role catalog_api;
+set local role :"api_role";
 set local catalog.viewer = 'user:alice';
 do $$ begin
   assert not exists (select 1 from api.resource where ref = 'aws_sqs_queue:prod-4711/legacy-orders-dlq'), 'alice sees unowned queue';
@@ -75,16 +75,16 @@ reset role;
 
 -- ---------------------------------------------------------------------------
 \echo 'the service role has no direct table access'
-set local role catalog_api;
+set local role :"api_role";
 do $$ begin
   begin
     perform 1 from catalog.resource limit 1;
-    assert false, 'catalog_api read catalog.resource';
+    assert false, 'the API role read catalog.resource';
   exception when insufficient_privilege then null;
   end;
   begin
     perform catalog.ingest('manual', 'component', 'x');
-    assert false, 'catalog_api called catalog.ingest';
+    assert false, 'the API role called catalog.ingest';
   exception when insufficient_privilege then null;
   end;
 end $$;
@@ -124,7 +124,7 @@ do $$ begin
   exception when check_violation then null;
   end;
 end $$;
-set local role catalog_api;
+set local role :"api_role";
 set local catalog.viewer = 'user:alice';
 do $$ begin
   begin
@@ -141,7 +141,7 @@ reset role;
 
 -- ---------------------------------------------------------------------------
 \echo 'a manual override wins a single-valued link; removing it restores the source value'
-set local role catalog_api;
+set local role :"api_role";
 set local catalog.viewer = 'user:frank';
 select 1 from api.update('component:checkout-service', p_links => '{"owner": "team:search"}');
 reset role;
@@ -154,7 +154,7 @@ do $$ begin
            where r.ref = 'component:checkout-service' and l.name = 'owner' and not l.applied and l.source_id = 'github') = 1,
     'github assertion not retained as overridden';
 end $$;
-set local role catalog_api;
+set local role :"api_role";
 set local catalog.viewer = 'user:frank';
 select 1 from api.update('component:checkout-service', p_links => '{"owner": null}');
 reset role;
@@ -202,7 +202,7 @@ end $$;
 \echo 'access grants are links: a kind editor grant gives access, is logged, and can be revoked'
 select catalog.ingest('manual', 'kind', 'aws_sqs_queue', null, '{}', '{"editors": ["team:search"]}',
                       p_actor_type => 'system', p_actor => 'git', p_reason => 'test grant');
-set local role catalog_api;
+set local role :"api_role";
 set local catalog.viewer = 'user:carol';
 do $$ begin
   assert exists (select 1 from api.resource where ref = 'aws_sqs_queue:prod-4711/checkout-events' and sensitive_visible),
@@ -219,7 +219,7 @@ do $$ begin
 end $$;
 select catalog.ingest('manual', 'kind', 'aws_sqs_queue', null, '{}', '{"editors": null}',
                       p_actor_type => 'system', p_actor => 'git');
-set local role catalog_api;
+set local role :"api_role";
 set local catalog.viewer = 'user:carol';
 do $$ begin
   assert not exists (select 1 from api.resource where ref = 'aws_sqs_queue:prod-4711/checkout-events'),
@@ -238,7 +238,7 @@ do $$ begin
 end $$;
 
 \echo 'access-granting links are privileged: team members cannot change their own team''s backing groups'
-set local role catalog_api;
+set local role :"api_role";
 set local catalog.viewer = 'user:alice';
 do $$ begin
   begin

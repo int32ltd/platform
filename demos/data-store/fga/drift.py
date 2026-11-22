@@ -26,7 +26,7 @@ It also prints the coverage map (which relations both sides answer) and
 probes the known semantic differences, which are reported as warnings.
 
 Needs: python3 (stdlib only), kubectl pointing at the cluster that runs the
-catalog-data-store namespace (Postgres and OpenFGA from k8s.yaml).
+catalog-data-store namespace (the psql client and OpenFGA from k8s.yaml).
 """
 import json
 import os
@@ -38,7 +38,10 @@ import urllib.error
 import urllib.request
 
 NS = os.environ.get("CATALOG_NAMESPACE", "catalog-data-store")
-PG_POD = "postgres-0"
+# The psql client deployment from k8s.yaml: connects as the database owner
+# with the credentials in Secret catalog-data-store-db.
+PSQL = "deploy/psql"
+ROLES_PSQL = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "sql", "_roles.psql")
 CLI_IMAGE = "docker.io/openfga/cli:v0.8.2"
 STORE = "catalog"
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -66,10 +69,12 @@ NOT_RESOURCES = ("user", "identity_group", "team", "platform")
 
 # ---------------------------------------------------------------- plumbing
 def psql(sql):
+    with open(ROLES_PSQL) as f:
+        preamble = f.read()   # role names as psql variables (:api_role, ...)
     r = subprocess.run(
-        ["kubectl", "-n", NS, "exec", "-i", PG_POD, "--",
-         "psql", "-X", "-q", "-At", "-U", "postgres", "-d", "catalog", "-v", "ON_ERROR_STOP=1"],
-        input=sql, capture_output=True, text=True)
+        ["kubectl", "-n", NS, "exec", "-i", PSQL, "--",
+         "psql", "-X", "-q", "-At", "-v", "ON_ERROR_STOP=1"],
+        input=preamble + "\n" + sql, capture_output=True, text=True)
     if r.returncode != 0:
         sys.exit("psql failed:\n" + r.stderr)
     return r.stdout.strip()
@@ -248,13 +253,13 @@ select coalesce(json_agg(json_build_object(
 
 VISIBLE_SQL = """
 create temporary table drift_visible (usr text, obj text);
-grant insert on drift_visible to catalog_api;
+grant insert on drift_visible to :"api_role";
 do $$
 declare u text;
 begin
   for u in select ref from catalog.resource where kind = 'user' and deleted_at is null loop
     perform set_config('catalog.viewer', u, true);
-    execute 'set local role catalog_api';
+    execute format('set local role %I', current_setting('demo.api_role'));
     insert into drift_visible
     select u, format('resource:%s/%s', kind, identifier) from api.resource
      where kind not in ('user', 'identity_group', 'team', 'platform');

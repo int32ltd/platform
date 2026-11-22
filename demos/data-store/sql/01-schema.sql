@@ -14,7 +14,6 @@
 -- while the page and the database disagree.
 -- =============================================================================
 
-set role catalog_owner;
 
 create schema catalog;
 create schema authz;
@@ -271,4 +270,3 @@ create table catalog.scorecard_history (
 create table catalog.scorecard_history_default partition of catalog.scorecard_history default;
 create index scorecard_history_lookup on catalog.scorecard_history (scorecard, evaluated_at);
 
-reset role;

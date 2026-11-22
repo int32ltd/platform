@@ -21,7 +21,8 @@ Contents:
 - [Invariants](#invariants)
 - [Sizing and indexes](#sizing-and-indexes)
 
-Target: PostgreSQL 18. No extensions are required.
+Target: PostgreSQL 18. No extensions, and no superuser: everything is created by the database
+owner (on the local environment, the shared CloudNativePG cluster).
 
 A visual version of this page is the
 [schema page](../../demos/data-store/index.html). The two are updated together
@@ -145,13 +146,22 @@ resources and links like everything else.
 | `authz` | access projections derived from links (`user_team`, `user_role`, `user_kind_grant`) and the views they are built from (`group_user`, `access_grant`, `fga_tuples`). No facts. | `authz.refresh_memberships()` only |
 | `api` | views and functions the catalog service's request path reads | nobody (no tables) |
 
+Roles are named after the database owner, `<owner>_<role>`. In the demo the owner is
+`catalog_data_store`, so the API role is `catalog_data_store_api`.
+
 | Role | Login | Privileges |
 |---|---|---|
-| `catalog_owner` | no | owns every object; definer of every `security definer` function |
-| `catalog_api` | no (grant to the catalog service's login) | `select` on `api.*` views, `execute` on `api.*` functions and the `authz.viewer*` functions. Nothing on `catalog.*` tables. |
-| `catalog_ingest` | no (grant to connector logins) | `execute` on `catalog.ingest`, `catalog.retract`, `catalog.start_run`, `catalog.finish_run` |
-| `catalog_consumer` | no (grant to consumer logins) | `execute` on `catalog.poll_changes`, `catalog.ack_changes` |
-| `catalog_auditor` | no | `select` on every `catalog` and `authz` table |
+| database owner (`<owner>`) | yes: the schema is loaded as this role | owns every object; definer of every `security definer` function. Not a superuser, no `CREATEROLE` |
+| `<owner>_api` | no (grant to the catalog service's login) | `select` on `api.*` views, `execute` on `api.*` functions and the `authz.viewer*` functions. Nothing on `catalog.*` tables. |
+| `<owner>_ingest` | no (grant to connector logins) | `execute` on `catalog.ingest`, `catalog.retract`, `catalog.start_run`, `catalog.finish_run` |
+| `<owner>_consumer` | no (grant to consumer logins) | `execute` on `catalog.poll_changes`, `catalog.ack_changes` |
+| `<owner>_auditor` | no | `select` on every `catalog` and `authz` table |
+
+The four extra roles must exist before the schema is loaded, as `NOLOGIN` roles the owner may
+`SET ROLE` to; `sql/00-roles.sql` checks this and stops with a hint otherwise. On the local
+environment they come from `.localenv.yaml` (`databaseRoles: [api, ingest, consumer, auditor]`),
+which creates exactly these names on the shared PostgreSQL. Scripts refer to them through psql
+variables (`:"api_role"`, …) set by `sql/_roles.psql`.
 
 `execute` on functions is revoked from `PUBLIC`, so a role can call only what it
 is granted. Entry points other roles call are `security definer` with
@@ -484,7 +494,7 @@ Triggers:
 
 ## Read surface: `api`
 
-Every view is owned by `catalog_owner`, declared `security_barrier`, and built
+Every view is owned by the database owner, declared `security_barrier`, and built
 on `api.resource`, which holds the only copy of the visibility rule.
 
 ### `api.resource`
@@ -528,7 +538,7 @@ Visibility, for the current `catalog.viewer`:
 | `api.changes_since(ts)` | `api.change` rows after `ts` |
 | `api.update(ref, properties = '{}', links = '{}', reason = null)` | the updated `api.resource` row. Requires a live viewer and `can_edit`; touching the kind's `grants` link or any privileged link also requires `can_transfer`. Properties claimed by a source are rejected (`42501`). Writes through `catalog.ingest` as `manual` with `actor = user:<viewer>`. |
 
-Permission helpers, callable by `catalog_api`: `authz.viewer()`,
+Permission helpers, callable by `<owner>_api`: `authz.viewer()`,
 `authz.viewer_teams()`, `authz.viewer_is(role)`, `authz.viewer_readable_kinds()`,
 `authz.viewer_privileged_kinds()`, `authz.viewer_can_edit(kind, owners)`,
 `authz.viewer_can_transfer(kind)`.
@@ -538,7 +548,7 @@ Permission helpers, callable by `catalog_api`: `authz.viewer()`,
 | `can_edit` | owner team member, kind editor, or platform admin |
 | `can_transfer` | platform admin |
 
-`authz.access_matrix(ref)`, not granted to `catalog_api`, evaluates
+`authz.access_matrix(ref)`, not granted to `<owner>_api`, evaluates
 `can_view`, `sees_sensitive`, `can_edit` and `can_transfer` for every live user
 with the same functions.
 
@@ -620,7 +630,7 @@ Checked by [`demos/data-store/test.sql`](../../demos/data-store/test.sql):
 4. Owner-only resources are invisible to non-owners; `org` resources are listed
    with sensitive properties, their provenance and their history values
    redacted; no viewer, or an unknown or tombstoned one, sees nothing.
-5. `catalog_api` cannot read `catalog` tables or call write functions.
+5. `<owner>_api` cannot read `catalog` tables or call write functions.
 6. `catalog.change_log` rejects `update` and `delete`.
 7. A source cannot write a kind outside `writes_kinds`; links must be declared,
    point at an allowed kind, and respect `many: false`; a manual edit cannot

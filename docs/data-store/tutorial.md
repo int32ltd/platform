@@ -1,12 +1,12 @@
 # Data store tutorial
 
-In this tutorial you start the catalog's PostgreSQL store in its own Kubernetes
-namespace, load
+In this tutorial you load the catalog's PostgreSQL store into the local environment's shared
+PostgreSQL, load
 the worked example from the
 [ownership demo](../../demos/service-catalog-ownership/), and use plain SQL to
 watch ownership, access and history follow the graph. It takes about twenty
-minutes. You need `kubectl` and a cluster to run it in; a local
-[kind](https://kind.sigs.k8s.io) cluster is enough.
+minutes. You need `kubectl`, `python3` and the local kind environment (`localenv`), whose
+shared PostgreSQL holds the demo database.
 
 You will:
 
@@ -31,12 +31,16 @@ cd demos/data-store
 ./demo.sh psql
 ```
 
-`up` applies `k8s.yaml` (namespace `catalog-data-store`, one
-`postgres:18.2-trixie` pod with an `emptyDir` volume), then recreates the
-`catalog` database and runs `sql/00-roles.sql` to `sql/05-seed.sql`. The seed does not insert rows directly: every fact arrives
+`up` runs `localenv apps apply` on `.localenv.yaml`, which gives the demo database
+`catalog_data_store` on the local environment's shared PostgreSQL, plus the four roles it
+separates privileges with (`catalog_data_store_api` and others). It then deploys a `psql` client
+pod and OpenFGA (`k8s.yaml`), drops and recreates the demo's schemas, and runs
+`sql/00-roles.sql` to `sql/05-seed.sql` as the database owner. The seed does not insert rows directly: every fact arrives
 through `catalog.ingest`, from the source that owns it, in the order real
-connectors would deliver it. Nothing is persisted, so `./demo.sh up` again
-always gives you a fresh copy.
+connectors would deliver it. `./demo.sh up` again always gives you a fresh copy.
+
+No local environment? `CATALOG_PG=standalone ./demo.sh up` runs on any Kubernetes cluster
+with its own Postgres, creating the same database, roles and Secret. CI uses it.
 
 Count what is there:
 
@@ -140,11 +144,11 @@ Its owners are `{}`. Unowned is a state you can query, not a gap.
 
 ## 4. Four people, four views
 
-Switch to the role the catalog service uses. It cannot read any table, only the
-`api` views:
+Switch to the role the catalog service uses, `catalog_data_store_api`. It cannot read any
+table, only the `api` views:
 
 ```sql
-set role catalog_api;
+set role catalog_data_store_api;
 select count(*) from catalog.resource;
 ```
 
@@ -177,7 +181,7 @@ select count(*) from api.get('aws_rds_instance:prod-4711/checkout-db');   -- 0
 
 Repeat with `user:alice` (Payments), `user:dave` (a contractor on Search) and
 `user:frank` (admin), and compare `select count(*) from api.resource`. Then go
-back to the superuser and ask for all of it at once:
+back to the database owner and ask for all of it at once:
 
 ```sql
 reset role;
@@ -203,7 +207,7 @@ which backs `team:payments`, which owns the component.
 **Move ownership.** Search is taking over cart-service. Carol tries first:
 
 ```sql
-set role catalog_api;
+set role catalog_data_store_api;
 set catalog.viewer = 'user:carol';
 select ref from api.update('component:cart-service', p_links => '{"owner": "team:search"}');
 ```
@@ -221,7 +225,7 @@ select ref, effective_owners from api.update('component:cart-service',
 ```
 
 The owner changes, and so does every query that depends on it. Look at what
-was logged, as the superuser:
+was logged, as the database owner:
 
 ```sql
 reset role;
@@ -261,7 +265,7 @@ select * from authz.user_team where user_ref = 'user:dave';   -- no rows
 ```
 
 The flattened membership was rebuilt in the same transaction. As `user:dave`
-through `catalog_api`, every Search resource that used to be fully visible is
+through the API role, every Search resource that used to be fully visible is
 now redacted or gone.
 
 ## 6. Infrastructure before its component
@@ -349,7 +353,7 @@ sees that its cost changed but not what to:
 
 ```sql
 select catalog.ingest('finops', 'component', 'cart-service', null, '{"monthlyCost": 1130}');
-set role catalog_api;
+set role catalog_data_store_api;
 set catalog.viewer = 'user:bob';
 select version, op, actor, diff from api.change
  where resource_ref = 'component:cart-service' order by version desc limit 1;
@@ -387,7 +391,8 @@ they disagree. Try breaking it: give a team member access in the database
 without syncing, then run `./demo.sh drift` to see the drift, and
 `./demo.sh drift --apply` to repair it.
 
-When you are done, `./demo.sh down` deletes the namespace.
+When you are done, `./demo.sh down` removes the workloads. The database stays;
+`localenv apps delete catalog-data-store` removes it with the namespace and roles.
 
 ## Where next
 

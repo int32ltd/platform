@@ -714,7 +714,7 @@
         "<b>Full properties</b>: owner team member, kind editor, admin or auditor.",
         "The viewer comes from <code>set local catalog.viewer = 'user:…'</code>. An unset, unknown or tombstoned viewer sees nothing.",
         "Not row-level security: RLS cannot redact a key inside jsonb, and the rule would then live in two places.",
-        "<code>security_barrier</code>, owned by catalog_owner; the service role has no access to the tables underneath."
+        "<code>security_barrier</code>, owned by the database owner; the API role (<code>&lt;owner&gt;_api</code>) has no access to the tables underneath."
       ],
       "writtenBy": [],
       "readBy": ["api.get", "api.search", "api.who_owns", "api.context", "api.update", "authz.access_matrix"]

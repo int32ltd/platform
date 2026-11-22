@@ -20,19 +20,25 @@ guided tour.
 
 Running the database itself:
 
-Needs `kubectl`, `python3` and a Kubernetes cluster; a local kind cluster is
-enough. Everything runs in the `catalog-data-store` namespace (a
-`postgres:18.2-trixie` pod with data in an `emptyDir`, and OpenFGA with an
-in-memory store), and nothing outside it is touched.
+Needs `kubectl`, `python3` and the local kind environment (`localenv`). The
+database lives on its shared PostgreSQL: `.localenv.yaml` asks for database
+`catalog_data_store` and the four roles the schema separates privileges with
+(`databaseRoles`), and `localenv apps apply` (run by `./demo.sh up`) creates
+them with Secret `catalog-data-store-db`. Namespace `catalog-data-store` holds
+a `psql` client pod that connects as the owner with verified TLS, and OpenFGA.
+
+Without the local environment, `CATALOG_PG=standalone ./demo.sh up` runs its
+own Postgres (`standalone.yaml`) and creates the same database, roles and
+Secret. CI uses that mode.
 
 ```
-./demo.sh up            # deploy k8s.yaml, recreate the catalog database, load sql/*.sql
+./demo.sh up            # localenv apps apply, deploy k8s.yaml, recreate the schemas, load sql/*.sql
 ./demo.sh walkthrough   # the guided tour: 11 steps, prints SQL and results
 ./demo.sh test          # invariant checks (rolled back), then check-page
 ./demo.sh check-page    # does index.html match the live schema?
 ./demo.sh drift         # do OpenFGA and the SQL rule agree? (--apply repairs)
 ./demo.sh psql          # explore by hand
-./demo.sh down          # delete the namespace; nothing persists
+./demo.sh down          # remove the workloads (the database stays; `localenv apps delete catalog-data-store` drops it)
 ```
 
 The walkthrough changes data, so run it on a fresh database. `./demo.sh up`
@@ -43,7 +49,9 @@ covers the same steps with commentary.
 
 | File | What it is |
 |---|---|
-| [`sql/00-roles.sql`](./sql/00-roles.sql) | database roles: `catalog_owner`, `catalog_api`, `catalog_ingest`, `catalog_consumer`, `catalog_auditor` |
+| [`.localenv.yaml`](./.localenv.yaml) | what the demo needs from the local environment: a database and four extra roles |
+| [`sql/_roles.psql`](./sql/_roles.psql) | role names as psql variables, prepended to every script: `<owner>_api`, `_ingest`, `_consumer`, `_auditor` |
+| [`sql/00-roles.sql`](./sql/00-roles.sql) | checks that those roles exist and the owner can `SET ROLE` to them |
 | [`sql/01-schema.sql`](./sql/01-schema.sql) | schemas, types, tables, indexes, change-log partitions |
 | [`sql/02-graph.sql`](./sql/02-graph.sql) | link validation, dangling attachment, single-valued precedence, property merge, ownership resolver, membership projection |
 | [`sql/03-write.sql`](./sql/03-write.sql) | `ingest`, `retract`, full-sync runs and sweep, outbox polling, `define_kind` / `define_source` |
@@ -55,28 +63,28 @@ covers the same steps with commentary.
 | [`test.sql`](./test.sql) | invariant checks of the store itself |
 | [`fga/model.fga`](./fga/model.fga) | the OpenFGA model: the single copy, embedded verbatim in the service catalog reference |
 | [`fga/drift.py`](./fga/drift.py) | the drift check between OpenFGA and the SQL rule; also the reference full-reconcile sync |
-| [`k8s.yaml`](./k8s.yaml) | namespace, Postgres 18 StatefulSet (emptyDir) and Service |
+| [`k8s.yaml`](./k8s.yaml) | the `psql` client pod (owner credentials from Secret `catalog-data-store-db`, verified TLS) and OpenFGA |
+| [`standalone.yaml`](./standalone.yaml) | Postgres for standalone mode (CI); not used on the local environment |
 | [`demo.sh`](./demo.sh) | deploy, load, run and connect, using `kubectl` |
 
 ## Trying things by hand
 
 ```sql
 -- be the catalog service, acting for Carol (Search)
-set role catalog_api;
+set role catalog_data_store_api;
 set catalog.viewer = 'user:carol';
 select ref, effective_owners, redacted from api.resource order by ref;
 select * from api.who_owns('component:cart-service');
 select jsonb_pretty(api.context(array['component:checkout-service'], 1));
 
--- back to the superuser to see the facts underneath
+-- back to the owner to see the facts underneath
 reset role;
 select * from authz.access_matrix('component:checkout-service');
 table authz.fga_tuples;
 ```
 
-For a GUI client, forward the port:
-`kubectl -n catalog-data-store port-forward svc/postgres 5433:5432`, then
-connect to `postgres://postgres:postgres@127.0.0.1:5433/catalog`.
+For a GUI client, `localenv apps describe catalog-data-store` lists the Secret
+holding the connection details (the database only accepts TLS).
 
 ## Keeping the schema page current
 

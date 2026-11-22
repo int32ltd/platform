@@ -8,7 +8,6 @@
 -- while the page and the database disagree.
 -- =============================================================================
 
-set role catalog_owner;
 
 create function catalog.log_change(
   p_resource_id bigint, p_ref text, p_version bigint, p_op text,
@@ -471,4 +470,3 @@ begin
   end if;
 end $$;
 
-reset role;

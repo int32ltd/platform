@@ -2,7 +2,8 @@
 
 Runnable models of the designs in [`../docs/`](../docs/). Each one runs
 locally with no vendor accounts. The browser demos need nothing at all; the
-data-store demo needs a local Kubernetes cluster (kind is enough).
+data-store demo runs on the local kind environment (localenv), or standalone
+on any Kubernetes cluster.
 
 [`index.html`](./index.html) is a landing page that links to every demo. Open
 it in a browser, or it's the root page when this folder is published. Each
