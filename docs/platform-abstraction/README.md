@@ -36,7 +36,8 @@ documents, each answering a different kind of question:
 | Explanation | "Why is it built this way?" | [explanation.md](./explanation.md) |
 
 The tutorial runs against a small Python simulation of the design in
-[`demos/platform-abstraction/`](../../demos/platform-abstraction/).
+[`demos/platform-abstraction/`](../../demos/platform-abstraction/). The same
+simulation runs in a browser from that folder's `index.html`.
 
 ## The shape of it, in one paragraph
 

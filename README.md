@@ -35,6 +35,9 @@ python3 platform.py apply requests/checkout-latency.yaml \
 
 It prints each layer the request passes through: contract validation,
 ownership and policy check, provider binding, and the simulated vendor calls.
+To skip the install, open
+[`demos/platform-abstraction/index.html`](./demos/platform-abstraction/index.html)
+in a browser instead. It's the same simulation with every file editable.
 
 For the service catalog, open
 [`demos/service-catalog-ownership/index.html`](./demos/service-catalog-ownership/index.html)

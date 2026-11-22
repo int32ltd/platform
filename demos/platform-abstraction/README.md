@@ -11,6 +11,17 @@ One capability is modeled end to end: **observability** (`emit-metric`,
 `define-alert`), with two interchangeable fake providers, Datadog and
 Dynatrace.
 
+There are two ways to run it:
+
+- **In a browser:** open [`index.html`](./index.html). There's no build step
+  and nothing to install. It shows the six layers side by side, lets you edit
+  every file (request, contract, catalog, bindings) and change the flags, and
+  recomputes the run as you type. A guided tour follows the tutorial's steps.
+  The Output tab shows what the CLI would print for the same files.
+- **As a CLI:** the Python below. It's the reference implementation, and the
+  browser page is a line-for-line port of `layers/*.py`. If you change one,
+  change the other.
+
 **To learn the design with this demo, follow the
 [tutorial](../../docs/platform-abstraction/tutorial.md).** This README is the
 quick reference.
