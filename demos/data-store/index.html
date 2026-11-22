@@ -27,6 +27,11 @@
     --s-catalog: #2b5bb5;
     --s-authz: #6b4ea8;
     --s-api: #1d7340;
+    --o-external: #b8650a;
+    --o-config: #a3367a;
+    --o-generated: #0d7a84;
+    --o-derived: #4f5fcf;
+    --o-computed: #8a96a3;
     --shadow: 0 1px 2px rgba(18, 24, 32, .06), 0 8px 24px -16px rgba(18, 24, 32, .25);
     --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
     --sans: "IBM Plex Sans", system-ui, -apple-system, Segoe UI, sans-serif;
@@ -53,6 +58,16 @@
       --s-catalog: #7aa5ef;
       --s-authz: #b49ae8;
       --s-api: #5cbd83;
+    --o-external: #e6a65a;
+    --o-config: #e07fb8;
+    --o-generated: #3fb3bd;
+    --o-derived: #96a2f2;
+    --o-computed: #8f9aa6;
+      --o-external: #e6a65a;
+      --o-config: #e07fb8;
+      --o-generated: #3fb3bd;
+      --o-derived: #96a2f2;
+      --o-computed: #8f9aa6;
       --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 10px 30px -18px rgba(0, 0, 0, .8);
     }
   }
@@ -168,6 +183,21 @@
   .node .col { font-family: var(--mono); font-size: 10.5px; fill: var(--ink-2); }
   .node .ky { font-family: var(--mono); font-size: 8.5px; font-weight: 600; }
   .node .more { font-family: var(--mono); font-size: 9.5px; fill: var(--ink-3); }
+  .origins { list-style: none; margin: 0; padding: 0; }
+  .origins button { width: 100%; display: grid; grid-template-columns: 12px 1fr auto; gap: 8px; align-items: start; text-align: left; background: none; border: 1px solid transparent; border-radius: 3px; padding: 5px 6px; cursor: pointer; }
+  .origins button:hover { background: var(--surface-2); }
+  .origins button[aria-pressed="true"] { background: var(--surface-2); border-color: var(--line); }
+  .origins .dot { width: 10px; height: 10px; border-radius: 50%; margin-top: 4px; }
+  .origins .lb { font-weight: 500; font-size: 12px; }
+  .origins .ds { display: block; color: var(--ink-3); font-size: 11.5px; font-weight: 400; }
+  .origins .ct { font-family: var(--mono); font-size: 10px; color: var(--ink-3); padding-top: 2px; }
+  .og { display: inline-flex; align-items: center; gap: 4px; font-family: var(--mono); font-size: 10px; color: var(--ink-2); }
+  .og::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
+  table.cols tr.fade { opacity: .35; }
+  .ogroup { border-left: 3px solid var(--c); padding: 2px 0 2px 10px; margin-bottom: 12px; }
+  .ogroup h4 { margin-top: 0 !important; }
+  .ogroup .cl { font-family: var(--mono); font-size: 11.5px; }
+  .ogroup .cl span { color: var(--ink-3); }
   .node:hover .box { stroke: var(--ink-3); }
   .node.sel .box { stroke: var(--accent); stroke-width: 2; }
   .node.dim { opacity: .28; }
@@ -247,6 +277,11 @@
       <h2>All steps</h2>
       <ol class="tour-list" id="tour-list"></ol>
     </section>
+    <section>
+      <h2>Where data comes from</h2>
+      <p>Every column has an origin. The dots and the bar under each table show the mix. Click one to highlight it everywhere.</p>
+      <ul class="origins" id="origins"></ul>
+    </section>
     <section style="border-bottom:0">
       <h2>Legend</h2>
       <div class="legend-row"><svg width="34" height="10"><line x1="0" y1="5" x2="34" y2="5" stroke="var(--ink-3)"/></svg>foreign key</div>
@@ -293,18 +328,18 @@
       "id": "catalog.kind", "kind": "table", "col": 0, "file": "01-schema.sql",
       "purpose": "A resource type, defined as data. Adding a kind is an insert, not a migration.",
       "columns": [
-        { "name": "id", "type": "text", "key": "PK", "note": "e.g. component, aws_rds_instance; immutable" },
-        { "name": "major_version", "type": "integer", "note": "bumped by a retyping migration" },
-        { "name": "title", "type": "text" },
-        { "name": "description", "type": "text" },
-        { "name": "property_schema", "type": "jsonb", "note": "JSON Schema; validated by the API on write" },
-        { "name": "sensitive_properties", "type": "text[]", "note": "redacted for viewers without full access" },
-        { "name": "visibility", "type": "visibility", "note": "owner (default) or org" },
-        { "name": "identity_keys", "type": "text[]", "note": "properties used to recognise the same thing from another source" },
-        { "name": "materialise_on_reference", "type": "boolean", "note": "a link to a missing resource of this kind creates an unmatched placeholder (system)" },
-        { "name": "stale_after", "type": "interval", "note": "how long every source may consider it stale before the sweep tombstones it" },
-        { "name": "built_in", "type": "boolean", "note": "the permission model depends on it" },
-        { "name": "updated_at", "type": "timestamp with time zone" }
+        { "name": "id", "type": "text", "origin": "config", "by": "define_kind, from git", "key": "PK", "note": "e.g. component, aws_rds_instance; immutable" },
+        { "name": "major_version", "type": "integer", "origin": "config", "by": "bumped by a retyping migration", "note": "bumped by a retyping migration" },
+        { "name": "title", "type": "text", "origin": "config", "by": "define_kind, from git" },
+        { "name": "description", "type": "text", "origin": "config", "by": "define_kind, from git" },
+        { "name": "property_schema", "type": "jsonb", "origin": "config", "by": "define_kind, from git", "note": "JSON Schema; validated by the API on write" },
+        { "name": "sensitive_properties", "type": "text[]", "origin": "config", "by": "define_kind, from git", "note": "redacted for viewers without full access" },
+        { "name": "visibility", "type": "visibility", "origin": "config", "by": "define_kind, from git", "note": "owner (default) or org" },
+        { "name": "identity_keys", "type": "text[]", "origin": "config", "by": "define_kind, from git", "note": "properties used to recognise the same thing from another source" },
+        { "name": "materialise_on_reference", "type": "boolean", "origin": "config", "by": "define_kind, from git", "note": "a link to a missing resource of this kind creates an unmatched placeholder (system)" },
+        { "name": "stale_after", "type": "interval", "origin": "config", "by": "define_kind, from git", "note": "how long every source may consider it stale before the sweep tombstones it" },
+        { "name": "built_in", "type": "boolean", "origin": "config", "by": "define_kind, from git", "note": "the permission model depends on it" },
+        { "name": "updated_at", "type": "timestamp with time zone", "origin": "generated", "by": "define_kind" }
       ],
       "indexes": ["primary key (id)"],
       "rules": [
@@ -319,13 +354,13 @@
       "id": "catalog.link_type", "kind": "table", "col": 0, "file": "01-schema.sql",
       "purpose": "A link declared on a kind: which kinds it may point at, how many, and what it means for ownership.",
       "columns": [
-        { "name": "kind_id", "type": "text", "key": "PK", "fk": "catalog.kind", "note": "the kind the link is declared on (the from side)" },
-        { "name": "name", "type": "text", "key": "PK", "note": "camelCase, e.g. owner, system, dependsOn" },
-        { "name": "target_kinds", "type": "text[]", "note": "allowed target kinds" },
-        { "name": "many", "type": "boolean", "note": "false: at most one applied target" },
-        { "name": "required", "type": "boolean", "note": "informational; an owner may be inherited" },
-        { "name": "ownership", "type": "link_ownership", "note": "grants, inherits or null" },
-        { "name": "privileged", "type": "boolean", "note": "the link grants access: members, backedBy, admins, auditors, editors" }
+        { "name": "kind_id", "type": "text", "origin": "config", "by": "define_kind, from git", "key": "PK", "fk": "catalog.kind", "note": "the kind the link is declared on (the from side)" },
+        { "name": "name", "type": "text", "origin": "config", "by": "define_kind, from git", "key": "PK", "note": "camelCase, e.g. owner, system, dependsOn" },
+        { "name": "target_kinds", "type": "text[]", "origin": "config", "by": "define_kind, from git", "note": "allowed target kinds" },
+        { "name": "many", "type": "boolean", "origin": "config", "by": "define_kind, from git", "note": "false: at most one applied target" },
+        { "name": "required", "type": "boolean", "origin": "config", "by": "define_kind, from git", "note": "informational; an owner may be inherited" },
+        { "name": "ownership", "type": "link_ownership", "origin": "config", "by": "define_kind, from git", "note": "grants, inherits or null" },
+        { "name": "privileged", "type": "boolean", "origin": "config", "by": "define_kind, from git", "note": "the link grants access: members, backedBy, admins, auditors, editors" }
       ],
       "indexes": ["primary key (kind_id, name)", "link_type_one_grant: unique (kind_id) where ownership = 'grants'"],
       "rules": [
@@ -341,10 +376,10 @@
       "id": "catalog.property_claim", "kind": "table", "col": 0, "file": "01-schema.sql",
       "purpose": "Which source is authoritative for which property of which kind.",
       "columns": [
-        { "name": "source_id", "type": "text", "key": "PK", "fk": "catalog.source" },
-        { "name": "kind_id", "type": "text", "key": "PK", "fk": "catalog.kind" },
-        { "name": "property", "type": "text", "key": "PK" },
-        { "name": "priority", "type": "integer", "note": "lower wins when two sources claim the same property" }
+        { "name": "source_id", "type": "text", "origin": "config", "by": "define_source, from git", "key": "PK", "fk": "catalog.source" },
+        { "name": "kind_id", "type": "text", "origin": "config", "by": "define_source, from git", "key": "PK", "fk": "catalog.kind" },
+        { "name": "property", "type": "text", "origin": "config", "by": "define_source, from git", "key": "PK" },
+        { "name": "priority", "type": "integer", "origin": "config", "by": "define_source, from git", "note": "lower wins when two sources claim the same property" }
       ],
       "indexes": ["primary key (source_id, kind_id, property)"],
       "rules": [
@@ -359,13 +394,13 @@
       "id": "catalog.source", "kind": "table", "col": 0, "file": "01-schema.sql",
       "purpose": "An ingestion connector plus its mapping, and what it is allowed to write.",
       "columns": [
-        { "name": "id", "type": "text", "key": "PK", "note": "e.g. entra-id, github, aws-prod-4711, manual" },
-        { "name": "connector", "type": "text" },
-        { "name": "config", "type": "jsonb" },
-        { "name": "mapping", "type": "jsonb", "note": "payload → resource mapping, run by the connector; stored here so it is data" },
-        { "name": "writes_kinds", "type": "text[]", "note": "kinds this source may create or update; * for all" },
-        { "name": "full_sync_drop_threshold", "type": "numeric", "note": "default 0.20: a full run seeing 20% fewer resources is held" },
-        { "name": "freshness_slo", "type": "interval", "note": "e.g. the identity provider's membership SLO" }
+        { "name": "id", "type": "text", "origin": "config", "by": "define_source, from git", "key": "PK", "note": "e.g. entra-id, github, aws-prod-4711, manual" },
+        { "name": "connector", "type": "text", "origin": "config", "by": "define_source, from git" },
+        { "name": "config", "type": "jsonb", "origin": "config", "by": "define_source, from git" },
+        { "name": "mapping", "type": "jsonb", "origin": "config", "by": "define_source, from git", "note": "payload → resource mapping, run by the connector; stored here so it is data" },
+        { "name": "writes_kinds", "type": "text[]", "origin": "config", "by": "define_source, from git", "note": "kinds this source may create or update; * for all" },
+        { "name": "full_sync_drop_threshold", "type": "numeric", "origin": "config", "by": "define_source, from git", "note": "default 0.20: a full run seeing 20% fewer resources is held" },
+        { "name": "freshness_slo", "type": "interval", "origin": "config", "by": "define_source, from git", "note": "e.g. the identity provider's membership SLO" }
       ],
       "indexes": ["primary key (id)"],
       "rules": [
@@ -379,15 +414,15 @@
       "id": "catalog.ingestion_run", "kind": "table", "col": 0, "file": "01-schema.sql",
       "purpose": "One sync run of one source. Full runs drive mark-and-sweep and the guard against mass deletion.",
       "columns": [
-        { "name": "id", "type": "bigint", "key": "PK" },
-        { "name": "source_id", "type": "text", "fk": "catalog.source" },
-        { "name": "mode", "type": "text", "note": "full or delta" },
-        { "name": "status", "type": "run_status", "note": "running, completed, held, failed" },
-        { "name": "started_at", "type": "timestamp with time zone" },
-        { "name": "finished_at", "type": "timestamp with time zone" },
-        { "name": "resources_seen", "type": "integer" },
-        { "name": "baseline", "type": "integer", "note": "resources_seen of the last completed full run" },
-        { "name": "note", "type": "text", "note": "outcome, e.g. why it was held" }
+        { "name": "id", "type": "bigint", "origin": "generated", "by": "identity", "key": "PK" },
+        { "name": "source_id", "type": "text", "origin": "external", "by": "connector, via start_run", "fk": "catalog.source" },
+        { "name": "mode", "type": "text", "origin": "external", "by": "connector, via start_run", "note": "full or delta" },
+        { "name": "status", "type": "run_status", "origin": "generated", "by": "start_run / finish_run / release_run", "note": "running, completed, held, failed" },
+        { "name": "started_at", "type": "timestamp with time zone", "origin": "generated", "by": "default now()" },
+        { "name": "finished_at", "type": "timestamp with time zone", "origin": "generated", "by": "finish_run" },
+        { "name": "resources_seen", "type": "integer", "origin": "generated", "by": "ingest counts each resource once" },
+        { "name": "baseline", "type": "integer", "origin": "generated", "by": "start_run, from the last completed full run", "note": "resources_seen of the last completed full run" },
+        { "name": "note", "type": "text", "origin": "generated", "by": "finish_run / release_run", "note": "outcome, e.g. why it was held" }
       ],
       "indexes": ["primary key (id)", "ingestion_run_source (source_id, started_at desc)"],
       "rules": [
@@ -401,20 +436,20 @@
       "id": "catalog.resource", "kind": "table", "col": 1, "file": "01-schema.sql",
       "purpose": "Every resource of every kind, one row each. The centre of the model.",
       "columns": [
-        { "name": "id", "type": "bigint", "key": "PK", "note": "internal; never leaves the database" },
-        { "name": "kind", "type": "text", "fk": "catalog.kind" },
-        { "name": "identifier", "type": "text", "note": "unique within the kind, immutable" },
-        { "name": "ref", "type": "text", "key": "UK", "note": "generated kind:identifier; the stable id everything outside uses" },
-        { "name": "title", "type": "text" },
-        { "name": "properties", "type": "jsonb", "note": "the merge of every source's observation" },
-        { "name": "property_provenance", "type": "jsonb", "note": "property → source whose value won" },
-        { "name": "effective_owners", "type": "text[]", "note": "team refs, written only by the resolver; {} is unowned" },
-        { "name": "version", "type": "bigint", "note": "matches change_log.version" },
-        { "name": "unmatched", "type": "boolean", "note": "placeholder nobody has claimed yet" },
-        { "name": "created_at", "type": "timestamp with time zone" },
-        { "name": "updated_at", "type": "timestamp with time zone" },
-        { "name": "deleted_at", "type": "timestamp with time zone", "note": "tombstone: hidden from the API, restorable" },
-        { "name": "search", "type": "tsvector", "note": "generated from identifier and title; never sensitive properties" }
+        { "name": "id", "type": "bigint", "origin": "generated", "by": "identity", "key": "PK", "note": "internal; never leaves the database" },
+        { "name": "kind", "type": "text", "origin": "external", "by": "source payload, via ingest", "fk": "catalog.kind" },
+        { "name": "identifier", "type": "text", "origin": "external", "by": "source mapping, via ingest", "note": "unique within the kind, immutable" },
+        { "name": "ref", "type": "text", "origin": "generated", "by": "generated column: kind || ':' || identifier", "key": "UK", "note": "generated kind:identifier; the stable id everything outside uses" },
+        { "name": "title", "type": "text", "origin": "external", "by": "source mapping, via ingest" },
+        { "name": "properties", "type": "jsonb", "origin": "generated", "by": "merge_properties, from every source's observed", "note": "the merge of every source's observation" },
+        { "name": "property_provenance", "type": "jsonb", "origin": "generated", "by": "merge_properties", "note": "property → source whose value won" },
+        { "name": "effective_owners", "type": "text[]", "origin": "generated", "by": "recompute_owners (resolver)", "note": "team refs, written only by the resolver; {} is unowned" },
+        { "name": "version", "type": "bigint", "origin": "generated", "by": "ingest / retract / recompute_owners", "note": "matches change_log.version" },
+        { "name": "unmatched", "type": "boolean", "origin": "generated", "by": "ingest: dangling-edge placeholder, cleared when a source claims it", "note": "placeholder nobody has claimed yet" },
+        { "name": "created_at", "type": "timestamp with time zone", "origin": "generated", "by": "default now()" },
+        { "name": "updated_at", "type": "timestamp with time zone", "origin": "generated", "by": "ingest / retract / recompute_owners" },
+        { "name": "deleted_at", "type": "timestamp with time zone", "origin": "generated", "by": "retract / sweep; cleared on restore", "note": "tombstone: hidden from the API, restorable" },
+        { "name": "search", "type": "tsvector", "origin": "generated", "by": "generated column from identifier and title", "note": "generated from identifier and title; never sensitive properties" }
       ],
       "indexes": [
         "primary key (id)", "unique (kind, identifier)", "unique (ref)",
@@ -439,14 +474,14 @@
       "id": "catalog.resource_source", "kind": "table", "col": 1, "file": "01-schema.sql",
       "purpose": "Provenance and freshness: one row per resource per source that has seen it, holding what that source said.",
       "columns": [
-        { "name": "resource_id", "type": "bigint", "key": "PK", "fk": "catalog.resource" },
-        { "name": "source_id", "type": "text", "key": "PK", "fk": "catalog.source" },
-        { "name": "external_id", "type": "text", "note": "ARN, Entra object id, GitHub node id" },
-        { "name": "observed", "type": "jsonb", "note": "the source's last report, applied or not" },
-        { "name": "first_seen_at", "type": "timestamp with time zone" },
-        { "name": "last_seen_at", "type": "timestamp with time zone" },
-        { "name": "last_run_id", "type": "bigint", "fk": "catalog.ingestion_run" },
-        { "name": "stale_since", "type": "timestamp with time zone", "note": "set when a full run missed it" }
+        { "name": "resource_id", "type": "bigint", "origin": "generated", "by": "ingest: identity resolution", "key": "PK", "fk": "catalog.resource" },
+        { "name": "source_id", "type": "text", "origin": "external", "by": "the calling source", "key": "PK", "fk": "catalog.source" },
+        { "name": "external_id", "type": "text", "origin": "external", "by": "source payload", "note": "ARN, Entra object id, GitHub node id" },
+        { "name": "observed", "type": "jsonb", "origin": "external", "by": "source payload (patched per write)", "note": "the source's last report, applied or not" },
+        { "name": "first_seen_at", "type": "timestamp with time zone", "origin": "generated", "by": "default now()" },
+        { "name": "last_seen_at", "type": "timestamp with time zone", "origin": "generated", "by": "ingest" },
+        { "name": "last_run_id", "type": "bigint", "origin": "external", "by": "connector passes its run id", "fk": "catalog.ingestion_run" },
+        { "name": "stale_since", "type": "timestamp with time zone", "origin": "generated", "by": "mark_stale; cleared by ingest", "note": "set when a full run missed it" }
       ],
       "indexes": ["primary key (resource_id, source_id)", "resource_source_sweep (source_id, last_run_id)"],
       "rules": [
@@ -461,15 +496,15 @@
       "id": "catalog.link", "kind": "table", "col": 1, "file": "01-schema.sql",
       "purpose": "Typed, directed edges between resources, one row per edge per source that asserts it.",
       "columns": [
-        { "name": "id", "type": "bigint", "key": "PK" },
-        { "name": "from_id", "type": "bigint", "fk": "catalog.resource" },
-        { "name": "name", "type": "text", "note": "a link_type of the from resource's kind" },
-        { "name": "to_ref", "type": "text", "note": "target reference, whether or not it exists yet" },
-        { "name": "to_id", "type": "bigint", "fk": "catalog.resource", "note": "null while dangling" },
-        { "name": "source_id", "type": "text", "fk": "catalog.source" },
-        { "name": "created_at", "type": "timestamp with time zone" },
-        { "name": "last_seen_at", "type": "timestamp with time zone" },
-        { "name": "applied", "type": "boolean", "note": "for single-valued links, true on exactly one row" }
+        { "name": "id", "type": "bigint", "origin": "generated", "by": "identity", "key": "PK" },
+        { "name": "from_id", "type": "bigint", "origin": "generated", "by": "ingest: the resolved resource", "fk": "catalog.resource" },
+        { "name": "name", "type": "text", "origin": "external", "by": "source mapping", "note": "a link_type of the from resource's kind" },
+        { "name": "to_ref", "type": "text", "origin": "external", "by": "source mapping (label, tag, catalog file)", "note": "target reference, whether or not it exists yet" },
+        { "name": "to_id", "type": "bigint", "origin": "generated", "by": "triggers link_validate / attach_dangling", "fk": "catalog.resource", "note": "null while dangling" },
+        { "name": "source_id", "type": "text", "origin": "external", "by": "the asserting source", "fk": "catalog.source" },
+        { "name": "created_at", "type": "timestamp with time zone", "origin": "generated", "by": "default now()" },
+        { "name": "last_seen_at", "type": "timestamp with time zone", "origin": "generated", "by": "ingest" },
+        { "name": "applied", "type": "boolean", "origin": "generated", "by": "apply_single_link", "note": "for single-valued links, true on exactly one row" }
       ],
       "indexes": [
         "primary key (id)", "unique (from_id, name, to_ref, source_id)",
@@ -490,11 +525,11 @@
       "id": "catalog.scorecard_result", "kind": "table", "col": 1, "file": "01-schema.sql",
       "purpose": "The current result of each scorecard for each resource.",
       "columns": [
-        { "name": "resource_id", "type": "bigint", "key": "PK", "fk": "catalog.resource" },
-        { "name": "scorecard", "type": "text", "key": "PK", "note": "identifier of the scorecard resource" },
-        { "name": "level", "type": "text", "note": "highest level reached; null for none" },
-        { "name": "rules", "type": "jsonb", "note": "{ rule-id: { pass, ... } }" },
-        { "name": "evaluated_at", "type": "timestamp with time zone" }
+        { "name": "resource_id", "type": "bigint", "origin": "derived", "by": "scorecards consumer", "key": "PK", "fk": "catalog.resource" },
+        { "name": "scorecard", "type": "text", "origin": "derived", "by": "scorecards consumer", "key": "PK", "note": "identifier of the scorecard resource" },
+        { "name": "level", "type": "text", "origin": "derived", "by": "scorecards consumer", "note": "highest level reached; null for none" },
+        { "name": "rules", "type": "jsonb", "origin": "derived", "by": "scorecards consumer", "note": "{ rule-id: { pass, ... } }" },
+        { "name": "evaluated_at", "type": "timestamp with time zone", "origin": "derived", "by": "scorecards consumer" }
       ],
       "indexes": ["primary key (resource_id, scorecard)"],
       "rules": ["Written by the scorecard consumer, which evaluates the rules in the expression language. The store never evaluates expressions."],
@@ -505,11 +540,11 @@
       "id": "catalog.scorecard_history", "kind": "table", "col": 1, "file": "01-schema.sql",
       "purpose": "Every scorecard evaluation over time, so trend reports are a query.",
       "columns": [
-        { "name": "resource_id", "type": "bigint", "ref": "catalog.resource" },
-        { "name": "scorecard", "type": "text" },
-        { "name": "level", "type": "text" },
-        { "name": "rules", "type": "jsonb" },
-        { "name": "evaluated_at", "type": "timestamp with time zone", "note": "partition key" }
+        { "name": "resource_id", "type": "bigint", "origin": "derived", "by": "scorecards consumer", "ref": "catalog.resource" },
+        { "name": "scorecard", "type": "text", "origin": "derived", "by": "scorecards consumer" },
+        { "name": "level", "type": "text", "origin": "derived", "by": "scorecards consumer" },
+        { "name": "rules", "type": "jsonb", "origin": "derived", "by": "scorecards consumer" },
+        { "name": "evaluated_at", "type": "timestamp with time zone", "origin": "derived", "by": "scorecards consumer", "note": "partition key" }
       ],
       "indexes": ["partitioned by range (evaluated_at)", "scorecard_history_lookup (scorecard, evaluated_at)"],
       "rules": ["No foreign key: history outlives the resources it describes."],
@@ -520,17 +555,17 @@
       "id": "catalog.change_log", "kind": "table", "col": 2, "file": "01-schema.sql",
       "purpose": "Every change to every resource: the audit trail, the outbox and the history users see.",
       "columns": [
-        { "name": "id", "type": "bigint", "key": "PK" },
-        { "name": "tx_id", "type": "xid8", "note": "the writing transaction; consumers read by (tx_id, id)" },
-        { "name": "occurred_at", "type": "timestamp with time zone", "key": "PK", "note": "partition key, monthly" },
-        { "name": "resource_id", "type": "bigint", "ref": "catalog.resource", "note": "no FK: the log outlives hard deletes" },
-        { "name": "resource_ref", "type": "text" },
-        { "name": "version", "type": "bigint" },
-        { "name": "op", "type": "text", "note": "create, update, delete, restore, owners" },
-        { "name": "actor_type", "type": "actor_type", "note": "user, source or system" },
-        { "name": "actor", "type": "text", "note": "e.g. user:frank, aws-prod-4711, sweep" },
-        { "name": "diff", "type": "jsonb", "note": "properties, title, links, effectiveOwners, unmatched, tombstoned" },
-        { "name": "reason", "type": "text", "note": "e.g. a change ticket" }
+        { "name": "id", "type": "bigint", "origin": "generated", "by": "identity", "key": "PK" },
+        { "name": "tx_id", "type": "xid8", "origin": "generated", "by": "default pg_current_xact_id()", "note": "the writing transaction; consumers read by (tx_id, id)" },
+        { "name": "occurred_at", "type": "timestamp with time zone", "origin": "generated", "by": "default now()", "key": "PK", "note": "partition key, monthly" },
+        { "name": "resource_id", "type": "bigint", "origin": "generated", "by": "log_change", "ref": "catalog.resource", "note": "no FK: the log outlives hard deletes" },
+        { "name": "resource_ref", "type": "text", "origin": "generated", "by": "log_change" },
+        { "name": "version", "type": "bigint", "origin": "generated", "by": "log_change" },
+        { "name": "op", "type": "text", "origin": "generated", "by": "log_change", "note": "create, update, delete, restore, owners" },
+        { "name": "actor_type", "type": "actor_type", "origin": "generated", "by": "log_change", "note": "user, source or system" },
+        { "name": "actor", "type": "text", "origin": "generated", "by": "log_change, from the calling source or user", "note": "e.g. user:frank, aws-prod-4711, sweep" },
+        { "name": "diff", "type": "jsonb", "origin": "generated", "by": "log_change", "note": "properties, title, links, effectiveOwners, unmatched, tombstoned" },
+        { "name": "reason", "type": "text", "origin": "external", "by": "the caller (e.g. a change ticket)", "note": "e.g. a change ticket" }
       ],
       "indexes": ["primary key (id, occurred_at)", "partitioned by range (occurred_at), one partition per month + default", "change_log_tx (tx_id, id)", "change_log_resource (resource_id, occurred_at)"],
       "rules": [
@@ -546,9 +581,9 @@
       "id": "catalog.consumer", "kind": "table", "col": 2, "file": "01-schema.sql",
       "purpose": "Outbox offsets, one row per consumer of the change log.",
       "columns": [
-        { "name": "name", "type": "text", "key": "PK", "note": "openfga-sync, scorecards, search-indexer, kafka-relay" },
-        { "name": "last_tx", "type": "xid8" },
-        { "name": "last_id", "type": "bigint" }
+        { "name": "name", "type": "text", "origin": "config", "by": "registered by the platform team", "key": "PK", "note": "openfga-sync, scorecards, search-indexer, kafka-relay" },
+        { "name": "last_tx", "type": "xid8", "origin": "generated", "by": "ack_changes" },
+        { "name": "last_id", "type": "bigint", "origin": "generated", "by": "ack_changes" }
       ],
       "indexes": ["primary key (name)"],
       "rules": ["Kafka is optional: if it is already run, a <code>kafka-relay</code> consumer publishes the log to <code>catalog.changes</code>, and nothing else changes."],
@@ -559,12 +594,12 @@
       "id": "authz.access_grant", "kind": "view", "col": 3, "file": "02-graph.sql",
       "purpose": "Every access grant, read straight from links: platform admins and auditors, and kind-wide editors.",
       "columns": [
-        { "name": "relation", "type": "text", "note": "admin, auditor or editor" },
-        { "name": "object_ref", "type": "text", "note": "platform:default or kind:<id>" },
-        { "name": "object_kind", "type": "text", "note": "platform or kind" },
-        { "name": "object_identifier", "type": "text", "note": "for kind grants, the kind being granted" },
-        { "name": "principal_ref", "type": "text", "note": "user, identity_group or team" },
-        { "name": "principal_kind", "type": "text" }
+        { "name": "relation", "type": "text", "origin": "computed", "by": "view: computed on every read", "note": "admin, auditor or editor" },
+        { "name": "object_ref", "type": "text", "origin": "computed", "by": "view: computed on every read", "note": "platform:default or kind:<id>" },
+        { "name": "object_kind", "type": "text", "origin": "computed", "by": "view: computed on every read", "note": "platform or kind" },
+        { "name": "object_identifier", "type": "text", "origin": "computed", "by": "view: computed on every read", "note": "for kind grants, the kind being granted" },
+        { "name": "principal_ref", "type": "text", "origin": "computed", "by": "view: computed on every read", "note": "user, identity_group or team" },
+        { "name": "principal_kind", "type": "text", "origin": "computed", "by": "view: computed on every read" }
       ],
       "indexes": [],
       "rules": [
@@ -579,8 +614,8 @@
       "id": "authz.group_user", "kind": "view", "col": 3, "file": "02-graph.sql",
       "purpose": "Every user in every group, following nested groups. A view over members links.",
       "columns": [
-        { "name": "group_ref", "type": "text" },
-        { "name": "user_ref", "type": "text" }
+        { "name": "group_ref", "type": "text", "origin": "computed", "by": "view: computed on every read" },
+        { "name": "user_ref", "type": "text", "origin": "computed", "by": "view: computed on every read" }
       ],
       "indexes": [],
       "rules": ["The facts stay nested exactly as the identity provider asserts them; this recursive view flattens them for the projections."],
@@ -591,8 +626,8 @@
       "id": "authz.user_team", "kind": "table", "col": 3, "file": "01-schema.sql",
       "purpose": "Derived: which teams each user belongs to. The query path's copy of what OpenFGA computes.",
       "columns": [
-        { "name": "user_ref", "type": "text", "key": "PK" },
-        { "name": "team_ref", "type": "text", "key": "PK" }
+        { "name": "user_ref", "type": "text", "origin": "derived", "by": "refresh_memberships", "key": "PK" },
+        { "name": "team_ref", "type": "text", "origin": "derived", "by": "refresh_memberships", "key": "PK" }
       ],
       "indexes": ["primary key (user_ref, team_ref)", "user_team_team (team_ref)"],
       "rules": [
@@ -606,8 +641,8 @@
       "id": "authz.user_role", "kind": "table", "col": 3, "file": "01-schema.sql",
       "purpose": "Derived: platform roles per user, from the admins/auditors links on platform:default and group membership.",
       "columns": [
-        { "name": "user_ref", "type": "text", "key": "PK" },
-        { "name": "role", "type": "text", "key": "PK" }
+        { "name": "user_ref", "type": "text", "origin": "derived", "by": "refresh_memberships", "key": "PK" },
+        { "name": "role", "type": "text", "origin": "derived", "by": "refresh_memberships", "key": "PK" }
       ],
       "indexes": ["primary key (user_ref, role)"],
       "rules": [],
@@ -618,9 +653,9 @@
       "id": "authz.user_kind_grant", "kind": "table", "col": 3, "file": "01-schema.sql",
       "purpose": "Derived: kind-wide grants per user, from editors links on kind resources and membership.",
       "columns": [
-        { "name": "user_ref", "type": "text", "key": "PK" },
-        { "name": "kind_id", "type": "text", "key": "PK" },
-        { "name": "relation", "type": "text", "key": "PK" }
+        { "name": "user_ref", "type": "text", "origin": "derived", "by": "refresh_memberships", "key": "PK" },
+        { "name": "kind_id", "type": "text", "origin": "derived", "by": "refresh_memberships", "key": "PK" },
+        { "name": "relation", "type": "text", "origin": "derived", "by": "refresh_memberships", "key": "PK" }
       ],
       "indexes": ["primary key (user_ref, kind_id, relation)"],
       "rules": [],
@@ -631,9 +666,9 @@
       "id": "authz.fga_tuples", "kind": "view", "col": 3, "file": "04-access.sql",
       "purpose": "The full OpenFGA tuple set the catalog should have written, derived from the graph.",
       "columns": [
-        { "name": "object", "type": "text", "note": "e.g. resource:component/checkout-service" },
-        { "name": "relation", "type": "text", "note": "member, backed_by, kind, owner, platform, org_viewer, editor, admin, auditor" },
-        { "name": "subject", "type": "text", "note": "e.g. team:payments, identity_group:eng-payments#member" }
+        { "name": "object", "type": "text", "origin": "computed", "by": "view: computed on every read", "note": "e.g. resource:component/checkout-service" },
+        { "name": "relation", "type": "text", "origin": "computed", "by": "view: computed on every read", "note": "member, backed_by, kind, owner, platform, org_viewer, editor, admin, auditor" },
+        { "name": "subject", "type": "text", "origin": "computed", "by": "view: computed on every read", "note": "e.g. team:payments, identity_group:eng-payments#member" }
       ],
       "indexes": [],
       "rules": [
@@ -647,20 +682,20 @@
       "id": "api.resource", "kind": "view", "col": 4, "file": "04-access.sql",
       "purpose": "Resources the current viewer may see, with sensitive properties redacted. The one copy of the visibility rule.",
       "columns": [
-        { "name": "ref", "type": "text" },
-        { "name": "kind", "type": "text" },
-        { "name": "identifier", "type": "text" },
-        { "name": "title", "type": "text" },
-        { "name": "properties", "type": "jsonb", "note": "sensitive keys removed unless full access" },
-        { "name": "redacted", "type": "text[]", "note": "which keys were removed" },
-        { "name": "effective_owners", "type": "text[]" },
-        { "name": "provenance", "type": "jsonb", "note": "minus redacted keys" },
-        { "name": "freshness", "type": "jsonb", "note": "{ source: { lastSeenAt, stale } }" },
-        { "name": "unmatched", "type": "boolean" },
-        { "name": "version", "type": "bigint" },
-        { "name": "created_at", "type": "timestamp with time zone" },
-        { "name": "updated_at", "type": "timestamp with time zone" },
-        { "name": "sensitive_visible", "type": "boolean", "note": "whether the viewer has full access" }
+        { "name": "ref", "type": "text", "origin": "computed", "by": "view: computed on every read" },
+        { "name": "kind", "type": "text", "origin": "computed", "by": "view: computed on every read" },
+        { "name": "identifier", "type": "text", "origin": "computed", "by": "view: computed on every read" },
+        { "name": "title", "type": "text", "origin": "computed", "by": "view: computed on every read" },
+        { "name": "properties", "type": "jsonb", "origin": "computed", "by": "view: computed on every read", "note": "sensitive keys removed unless full access" },
+        { "name": "redacted", "type": "text[]", "origin": "computed", "by": "view: computed on every read", "note": "which keys were removed" },
+        { "name": "effective_owners", "type": "text[]", "origin": "computed", "by": "view: computed on every read" },
+        { "name": "provenance", "type": "jsonb", "origin": "computed", "by": "view: computed on every read", "note": "minus redacted keys" },
+        { "name": "freshness", "type": "jsonb", "origin": "computed", "by": "view: computed on every read", "note": "{ source: { lastSeenAt, stale } }" },
+        { "name": "unmatched", "type": "boolean", "origin": "computed", "by": "view: computed on every read" },
+        { "name": "version", "type": "bigint", "origin": "computed", "by": "view: computed on every read" },
+        { "name": "created_at", "type": "timestamp with time zone", "origin": "computed", "by": "view: computed on every read" },
+        { "name": "updated_at", "type": "timestamp with time zone", "origin": "computed", "by": "view: computed on every read" },
+        { "name": "sensitive_visible", "type": "boolean", "origin": "computed", "by": "view: computed on every read", "note": "whether the viewer has full access" }
       ],
       "indexes": [],
       "rules": [
@@ -677,13 +712,13 @@
       "id": "api.link", "kind": "view", "col": 4, "file": "04-access.sql",
       "purpose": "Applied edges whose both ends the viewer can see (a dangling edge needs only its source end).",
       "columns": [
-        { "name": "from_ref", "type": "text" },
-        { "name": "name", "type": "text" },
-        { "name": "to_ref", "type": "text" },
-        { "name": "dangling", "type": "boolean" },
-        { "name": "sources", "type": "text[]", "note": "sources whose assertion is applied" },
-        { "name": "overridden", "type": "text[]", "note": "sources whose assertion lost" },
-        { "name": "last_seen_at", "type": "timestamp with time zone" }
+        { "name": "from_ref", "type": "text", "origin": "computed", "by": "view: computed on every read" },
+        { "name": "name", "type": "text", "origin": "computed", "by": "view: computed on every read" },
+        { "name": "to_ref", "type": "text", "origin": "computed", "by": "view: computed on every read" },
+        { "name": "dangling", "type": "boolean", "origin": "computed", "by": "view: computed on every read" },
+        { "name": "sources", "type": "text[]", "origin": "computed", "by": "view: computed on every read", "note": "sources whose assertion is applied" },
+        { "name": "overridden", "type": "text[]", "origin": "computed", "by": "view: computed on every read", "note": "sources whose assertion lost" },
+        { "name": "last_seen_at", "type": "timestamp with time zone", "origin": "computed", "by": "view: computed on every read" }
       ],
       "indexes": [],
       "rules": ["Built on api.resource for both ends, so a hidden resource never leaks through an edge."],
@@ -694,14 +729,14 @@
       "id": "api.change", "kind": "view", "col": 4, "file": "04-access.sql",
       "purpose": "History of resources the viewer can see now, with sensitive values in diffs replaced by \"(redacted)\".",
       "columns": [
-        { "name": "occurred_at", "type": "timestamp with time zone" },
-        { "name": "resource_ref", "type": "text" },
-        { "name": "version", "type": "bigint" },
-        { "name": "op", "type": "text" },
-        { "name": "actor_type", "type": "actor_type" },
-        { "name": "actor", "type": "text" },
-        { "name": "diff", "type": "jsonb" },
-        { "name": "reason", "type": "text" }
+        { "name": "occurred_at", "type": "timestamp with time zone", "origin": "computed", "by": "view: computed on every read" },
+        { "name": "resource_ref", "type": "text", "origin": "computed", "by": "view: computed on every read" },
+        { "name": "version", "type": "bigint", "origin": "computed", "by": "view: computed on every read" },
+        { "name": "op", "type": "text", "origin": "computed", "by": "view: computed on every read" },
+        { "name": "actor_type", "type": "actor_type", "origin": "computed", "by": "view: computed on every read" },
+        { "name": "actor", "type": "text", "origin": "computed", "by": "view: computed on every read" },
+        { "name": "diff", "type": "jsonb", "origin": "computed", "by": "view: computed on every read" },
+        { "name": "reason", "type": "text", "origin": "computed", "by": "view: computed on every read" }
       ],
       "indexes": [],
       "rules": ["The viewer learns that a sensitive property changed, not what it changed to."],
@@ -712,13 +747,13 @@
       "id": "api.kind", "kind": "view", "col": 4, "file": "04-access.sql",
       "purpose": "Kind definitions with their links, for clients that build typed schemas (GraphQL).",
       "columns": [
-        { "name": "id", "type": "text" },
-        { "name": "title", "type": "text" },
-        { "name": "description", "type": "text" },
-        { "name": "visibility", "type": "visibility" },
-        { "name": "sensitive_properties", "type": "text[]" },
-        { "name": "identity_keys", "type": "text[]" },
-        { "name": "links", "type": "jsonb" }
+        { "name": "id", "type": "text", "origin": "computed", "by": "view: computed on every read" },
+        { "name": "title", "type": "text", "origin": "computed", "by": "view: computed on every read" },
+        { "name": "description", "type": "text", "origin": "computed", "by": "view: computed on every read" },
+        { "name": "visibility", "type": "visibility", "origin": "computed", "by": "view: computed on every read" },
+        { "name": "sensitive_properties", "type": "text[]", "origin": "computed", "by": "view: computed on every read" },
+        { "name": "identity_keys", "type": "text[]", "origin": "computed", "by": "view: computed on every read" },
+        { "name": "links", "type": "jsonb", "origin": "computed", "by": "view: computed on every read" }
       ],
       "indexes": [],
       "rules": ["Empty without a live viewer."],
@@ -850,6 +885,9 @@
     { "title": "One table for every kind",
       "focus": ["catalog.kind", "catalog.link_type", "catalog.resource"],
       "body": "<p>Every resource of every kind is a row in <code>catalog.resource</code>, with its properties in <code>jsonb</code>. Kinds and their links are rows too.</p><p>A table per kind would give typed columns, but every new kind would need a migration. The catalog's core requirement is that a new kind is a config change.</p><p>Inside, rows join by <code>id</code>. Everything outside uses <code>ref</code> (<code>component:checkout-service</code>).</p>" },
+    { "title": "What comes in, what the store makes",
+      "focus": ["catalog.resource", "catalog.resource_source", "catalog.link"], "origin": "external", "tab": "origin",
+      "body": "<p>Only the <b style=\"color:var(--o-external)\">amber</b> columns come from outside: what a source sent (or a user edited through the <code>manual</code> source). That is a resource's identity and title, each source's <code>observed</code> properties, and the link assertions.</p><p>Almost everything else is <b style=\"color:var(--o-generated)\">generated on write</b> by the store's functions and triggers: merged <code>properties</code>, <code>effective_owners</code>, <code>to_id</code>, versions, the change log. <b style=\"color:var(--o-config)\">Config</b> comes from git, the <code>authz</code> tables are a <b style=\"color:var(--o-derived)\">derived cache</b>, and the <code>api</code> views are <b style=\"color:var(--o-computed)\">computed on read</b>.</p><p>Click an origin under <i>Where data comes from</i> to highlight it anywhere.</p>" },
     { "title": "Many sources, one resource",
       "focus": ["catalog.source", "catalog.property_claim", "catalog.resource_source", "catalog.resource"],
       "body": "<p>GitHub, PagerDuty, FinOps and a manual fact all describe checkout-service. Each source's last report is kept in <code>resource_source.observed</code>.</p><p><code>merge_properties</code> picks a winner per property using <code>property_claim</code> and writes the result to <code>resource.properties</code>, recording who won in <code>property_provenance</code>.</p>" },
@@ -885,7 +923,16 @@ const schemaOf = (id) => id.split(".")[0];
 const short = (ty) => ty.replace("timestamp with time zone", "timestamptz");
 const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-let sel = { type: "table", id: "catalog.resource" }, tab = "columns", step = 0, tourOn = true;
+let sel = { type: "table", id: "catalog.resource" }, tab = "columns", step = 0, tourOn = true, originFocus = null;
+const ORIGIN = {
+  external:  { label: "From sources",       desc: "sent by an ingestion source, or by a user edit through the manual source" },
+  config:    { label: "Platform config",    desc: "defined in git: kinds, link types, sources, claims" },
+  generated: { label: "Generated on write", desc: "set by the store itself: identity, defaults, generated columns, triggers, write functions" },
+  derived:   { label: "Derived cache",      desc: "rebuilt from other tables by a function or a consumer" },
+  computed:  { label: "Computed on read",   desc: "a view: nothing is stored" },
+};
+const OC = (o) => `var(--o-${o})`;
+const originsOf = (t) => Object.keys(ORIGIN).map((o) => [o, t.columns.filter((c) => c.origin === o).length]).filter(([, n]) => n);
 const shown = { catalog: true, authz: true, api: true };
 
 /* ---------- layout: columns stacked top to bottom ---------- */
@@ -895,7 +942,7 @@ function layout() {
   const ys = COLX.map(() => TOP), P = {};
   for (const t of D.tables) {
     const rows = Math.min(keyCols(t).length, 5);
-    const h = HEAD + rows * ROW + 20;
+    const h = HEAD + rows * ROW + 26;
     P[t.id] = { x: COLX[t.col], y: ys[t.col], w: NW, h };
     ys[t.col] += h + GAP;
   }
@@ -918,6 +965,7 @@ function anchor(a, b) {
 
 /* ---------- what is highlighted ---------- */
 function focusSet() {
+  if (originFocus) return new Set(D.tables.filter((t) => t.columns.some((c) => c.origin === originFocus)).map((t) => t.id));
   if (tourOn) return new Set(D.tour[step].focus);
   if (sel.type === "table") {
     const s = new Set([sel.id]);
@@ -960,13 +1008,24 @@ function renderGraph() {
       const y = p.y + HEAD + 14 + i * ROW;
       const k = c.key || (c.fk ? "FK" : "ref");
       const kc = k === "PK" ? "var(--accent-ink)" : k === "FK" ? "var(--warn)" : "var(--ink-3)";
-      rows += `<text class="ky" x="${p.x + 9}" y="${y}" fill="${kc}">${k}</text><text class="col" x="${p.x + 36}" y="${y}">${esc(c.name)}</text>`;
+      const dim = originFocus && c.origin !== originFocus ? ' opacity=".3"' : "";
+      rows += `<g${dim}><circle cx="${p.x + 12}" cy="${y - 3.5}" r="3" fill="${OC(c.origin)}"><title>${esc(ORIGIN[c.origin].label)}: ${esc(c.by)}</title></circle>`
+            + `<text class="ky" x="${p.x + 20}" y="${y}" fill="${kc}">${k}</text><text class="col" x="${p.x + 46}" y="${y}">${esc(c.name)}</text></g>`;
     });
     const extra = t.columns.length - list.length;
-    rows += `<text class="more" x="${p.x + 9}" y="${p.y + p.h - 8}">${extra > 0 ? `+ ${extra} more column${extra === 1 ? "" : "s"}` : `${t.columns.length} columns`}</text>`;
+    rows += `<text class="more" x="${p.x + 9}" y="${p.y + p.h - 14}">${extra > 0 ? `+ ${extra} more column${extra === 1 ? "" : "s"}` : `${t.columns.length} columns`}</text>`;
+    // origin bar: one segment per origin, width proportional to its columns
+    let bx = p.x + 1;
+    const bw = p.w - 2;
+    for (const [o, n] of originsOf(t)) {
+      const w = bw * n / t.columns.length;
+      const dim = originFocus && o !== originFocus ? ' opacity=".25"' : "";
+      rows += `<rect x="${bx.toFixed(1)}" y="${p.y + p.h - 6}" width="${w.toFixed(1)}" height="5" fill="${OC(o)}"${dim}><title>${esc(ORIGIN[o].label)}: ${n} of ${t.columns.length} columns</title></rect>`;
+      bx += w;
+    }
     svg += `<g class="${cls}" data-id="${t.id}" tabindex="0" role="button" aria-label="${esc(t.id)}">
       <rect class="box" x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" rx="3"/>
-      <rect class="hd" x="${p.x}" y="${p.y}" width="4" height="${p.h}" fill="${SCHEMA_COLOR[s]}"/>
+      <rect class="hd" x="${p.x}" y="${p.y}" width="4" height="${HEAD}" fill="${SCHEMA_COLOR[s]}"/>
       <text class="nm" x="${p.x + 12}" y="${p.y + 17}">${esc(t.id.split(".")[1])}</text>
       <text class="kd" x="${p.x + p.w - 8}" y="${p.y + 16}" text-anchor="end">${t.kind}</text>
       <line x1="${p.x}" y1="${p.y + HEAD}" x2="${p.x + p.w}" y2="${p.y + HEAD}" stroke="var(--line-soft)"/>
@@ -996,7 +1055,8 @@ function tablePanes(t) {
                     + (c.fk ? `<span class="k fk">FK</span>` : "") + (c.ref ? `<span class="k">ref</span>` : "");
   return {
     columns: `<table class="cols"><thead><tr><th>Column</th><th>Type</th></tr></thead><tbody>${t.columns.map((c) =>
-      `<tr><td class="cn">${esc(c.name)}${keys(c)}${c.note || c.fk || c.ref ? `<div class="note">${c.note ? esc(c.note) : ""}${c.fk ? `${c.note ? " · " : ""}→ ${esc(c.fk)}` : ""}${c.ref ? `${c.note ? " · " : ""}→ ${esc(c.ref)} (no FK)` : ""}</div>` : ""}</td><td class="ct">${esc(short(c.type))}</td></tr>`).join("")}</tbody></table>`,
+      `<tr class="${originFocus && c.origin !== originFocus ? "fade" : ""}"><td class="cn">${esc(c.name)}${keys(c)}<div class="note"><span class="og" style="--c:${OC(c.origin)}">${esc(ORIGIN[c.origin].label)}</span> · ${esc(c.by)}</div>${c.note || c.fk || c.ref ? `<div class="note">${c.note ? esc(c.note) : ""}${c.fk ? `${c.note ? " · " : ""}→ ${esc(c.fk)}` : ""}${c.ref ? `${c.note ? " · " : ""}→ ${esc(c.ref)} (no FK)` : ""}</div>` : ""}</td><td class="ct">${esc(short(c.type))}</td></tr>`).join("")}</tbody></table>`,
+    origin: `<div class="pane">${originsOf(t).map(([o]) => `<div class="ogroup" style="--c:${OC(o)}"><h4>${esc(ORIGIN[o].label)}</h4><p>${esc(ORIGIN[o].desc)}.</p>${t.columns.filter((c) => c.origin === o).map((c) => `<div class="cl">${esc(c.name)} <span>← ${esc(c.by)}</span></div>`).join("")}</div>`).join("")}</div>`,
     logic: `<div class="pane">${t.rules.length ? `<h4>How it works</h4><ul class="rules">${t.rules.map((r) => `<li>${r}</li>`).join("")}</ul>` : ""}
       <h4>Written by</h4>${chips(t.writtenBy)}
       <h4>Read by</h4>${chips(t.readBy)}
@@ -1014,7 +1074,7 @@ function renderInspector() {
     document.getElementById("iref").innerHTML = `<span class="badge" style="background:${SCHEMA_COLOR[s]}">${s}</span>${t.kind}`;
     document.getElementById("ititle").textContent = t.id;
     document.getElementById("ipurpose").textContent = t.purpose;
-    const P2 = tablePanes(t), TABS = [["columns", "Columns"], ["logic", "Logic"], ["indexes", "Indexes"], ["source", "Source"]];
+    const P2 = tablePanes(t), TABS = [["columns", "Columns"], ["origin", "Origin"], ["logic", "Logic"], ["indexes", "Indexes"], ["source", "Source"]];
     if (!P2[tab]) tab = "columns";
     tabsEl.innerHTML = TABS.map(([k, l]) => `<button role="tab" aria-selected="${k === tab}" data-tab="${k}">${l}</button>`).join("");
     tabsEl.style.display = "";
@@ -1048,7 +1108,7 @@ function renderTour() {
     </div>`;
   document.getElementById("tour-list").innerHTML = D.tour.map((t, i) =>
     `<li><button data-step="${i}" aria-current="${tourOn && i === step}"><span class="n">${i + 1}</span>${esc(t.title)}</button></li>`).join("");
-  const goto = (i) => { step = i; tourOn = true; sel = { type: "table", id: D.tour[i].focus[0] }; tab = "logic"; render(); };
+  const goto = (i) => { step = i; tourOn = true; originFocus = D.tour[i].origin || null; sel = { type: "table", id: D.tour[i].focus[0] }; tab = D.tour[i].tab || "logic"; render(); };
   document.getElementById("t-prev").onclick = () => goto(step - 1);
   document.getElementById("t-next").onclick = () => goto(step + 1);
   const r = document.getElementById("t-resume"); if (r) r.onclick = () => goto(step);
@@ -1067,7 +1127,19 @@ function renderSchemas() {
 }
 
 function selectTable(id) { sel = { type: "table", id }; tourOn = false; render(); }
-function render() { renderSchemas(); renderTour(); renderGraph(); renderInspector(); }
+function renderOrigins() {
+  const count = (o) => D.tables.reduce((n, t) => n + t.columns.filter((c) => c.origin === o).length, 0);
+  const el = document.getElementById("origins");
+  el.innerHTML = Object.entries(ORIGIN).map(([o, d]) =>
+    `<li><button aria-pressed="${originFocus === o}" data-o="${o}"><span class="dot" style="background:${OC(o)}"></span>
+      <span class="lb">${esc(d.label)}<span class="ds">${esc(d.desc)}</span></span><span class="ct">${count(o)}</span></button></li>`).join("");
+  el.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => {
+    originFocus = originFocus === b.dataset.o ? null : b.dataset.o;
+    tourOn = false; render();
+  }));
+}
+
+function render() { renderSchemas(); renderOrigins(); renderTour(); renderGraph(); renderInspector(); }
 tab = "logic";
 render();
 </script>
