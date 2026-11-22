@@ -52,6 +52,7 @@ create table catalog.link_type (
   many         boolean not null default false,
   required     boolean not null default false,
   ownership    catalog.link_ownership,          -- null: the link plays no part in ownership
+  privileged   boolean not null default false,  -- changing it changes who can access what
   primary key (kind_id, name)
 );
 -- At most one link per kind may define the owner.
@@ -216,21 +217,15 @@ create table catalog.consumer (
 );
 
 -- -----------------------------------------------------------------------------
--- authz: grants that are facts (written by platform admins through git), and
--- projections derived from the graph (written only by authz.refresh_memberships).
+-- authz: access projections derived from the graph, written only by
+-- authz.refresh_memberships. They hold no facts. Who belongs to what, and who
+-- administers what, are links between ordinary resources:
+--   identity_group --members-->  user | identity_group
+--   team           --backedBy--> identity_group
+--   platform       --admins / auditors--> user | identity_group
+--   kind           --editors-->  team | identity_group
+-- These tables are a cache of what OpenFGA computes from the same links.
 -- -----------------------------------------------------------------------------
-create table authz.platform_grant (
-  role          text not null check (role in ('admin', 'auditor')),
-  principal_ref text not null check (principal_ref ~ '^(user|identity_group):'),
-  primary key (role, principal_ref)
-);
-
-create table authz.kind_grant (
-  kind_id       text not null references catalog.kind on delete cascade,
-  relation      text not null check (relation in ('editor')),
-  principal_ref text not null check (principal_ref ~ '^(team|identity_group):'),
-  primary key (kind_id, relation, principal_ref)
-);
 
 -- Derived: flattened membership, the query-path twin of OpenFGA's evaluation.
 create table authz.user_team (

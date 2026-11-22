@@ -65,6 +65,11 @@ for t in d["tables"]:
         out.append("C %s.%s %s" % (t["id"], c["name"], c["type"]))
 for f in d["functions"]:
     out.append("F " + f["id"])
+origins = {"external", "config", "generated", "derived", "computed"}
+for t in d["tables"]:
+    for c in t["columns"]:
+        if c.get("origin") not in origins or not c.get("by"):
+            sys.exit("index.html: %s.%s needs an origin (one of %s) and a by" % (t["id"], c["name"], ", ".join(sorted(origins))))
 ids = {t["id"] for t in d["tables"]} | {f["id"] for f in d["functions"]}
 for t in d["tables"]:
     for r in t["writtenBy"] + t["readBy"]:

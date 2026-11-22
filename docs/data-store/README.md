@@ -45,7 +45,7 @@ and `./demo.sh test` fails while it is out of date.
           ▼
  ┌─ authz ─────────────────────┐     ┌─ api (catalog_api reads only this) ─┐
  │ user_team  user_role        │────►│ resource  link  change  kind        │
- │ platform_grant  kind_grant  │     │ get  search  who_owns  context      │
+ │ access_grant (from links)   │     │ get  search  who_owns  context      │
  │ fga_tuples (→ OpenFGA sync) │     │ changes_since  update               │
  └─────────────────────────────┘     └─────────────────────────────────────┘
 ```

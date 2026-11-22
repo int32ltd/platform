@@ -11,8 +11,10 @@ renames or retypes a table, view, column or function must update, in the same
 pull request:
 
 - the `schema-data` block in `demos/data-store/index.html`: the object itself,
-  plus its purpose, rules, `writtenBy`/`readBy`, edges, and the guided tour if
-  the logic it explains changed;
+  each column's `origin` (from sources, platform config, generated on write,
+  derived cache, computed on read) and `by` (what sets it), plus its purpose,
+  rules, `writtenBy`/`readBy`, edges, and the guided tour if the logic it
+  explains changed;
 - [`docs/data-store/reference.md`](./docs/data-store/reference.md).
 
 `./demo.sh test` (in `demos/data-store/`) runs `check-page`, which compares the

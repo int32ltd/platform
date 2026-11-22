@@ -16,6 +16,7 @@ Contents:
 - [Links: one row per edge per source](#links-one-row-per-edge-per-source)
 - [Two identifiers: `id` inside, `ref` outside](#two-identifiers-id-inside-ref-outside)
 - [Ownership is materialised, synchronously](#ownership-is-materialised-synchronously)
+- [People and grants are resources and links](#people-and-grants-are-resources-and-links)
 - [Membership is flattened, but only as a projection](#membership-is-flattened-but-only-as-a-projection)
 - [Visibility lives in one view, not in row-level security](#visibility-lives-in-one-view-not-in-row-level-security)
 - [The viewer is a session setting](#the-viewer-is-a-session-setting)
@@ -165,6 +166,40 @@ trade can be made later without changing the schema.
 A team owns itself. Without that rule, a team's members would see their own
 team's sensitive properties redacted, because a team has no `owner` link.
 
+## People and grants are resources and links
+
+The catalog's founding rule is that permissions are part of the map. So
+there is no `users`, `groups`, `teams` or `grants` table. People and access
+use the same two tables as everything else:
+
+| Fact | Stored as |
+|---|---|
+| a person or service principal | resource of kind `user` |
+| an identity provider group | resource of kind `identity_group` |
+| a team | resource of kind `team` |
+| group membership (nested) | `identity_group --members--> user \| identity_group` |
+| which groups back a team | `team --backedBy--> identity_group` |
+| platform admins and auditors | `platform:default --admins/auditors--> user \| identity_group` |
+| kind-wide editors | `kind:<id> --editors--> team \| identity_group` |
+
+That buys the same things for access that every other fact gets. A grant is
+ingested from its source (or written through git as `manual`), shows up in
+the change log with actor and reason, appears on the group's or team's
+neighbourhood in `api.link` and `api.context`, and reaches OpenFGA through the
+same tuple projection. "Who can administer the platform?" and "who can edit
+RDS instances?" are graph queries, not lookups in a side table.
+
+The `authz` schema holds no facts at all. Its tables are a cache derived from
+these links (next section), and its views (`group_user`, `access_grant`,
+`fga_tuples`) are read-only lenses over them.
+
+These links are marked **privileged** on their link type. That has two
+effects. A change to one rebuilds the access projections in the same
+transaction. And changing one through the API needs `can_transfer`, exactly
+like changing an owner. Without that rule, a team owns itself, so any member
+could put another group behind their team (`backedBy`), and a kind editor of
+`kind` could make themselves an editor of every kind.
+
 ## Membership is flattened, but only as a projection
 
 The catalog keeps groups nested exactly as the identity provider asserts them,
@@ -176,8 +211,8 @@ The query path still needs "which teams is this user in" on every request.
 Walking nested groups per request is exactly the cost the catalog exists to
 avoid. So `authz.user_team` (and `user_role`, `user_kind_grant`) are projections,
 rebuilt by `authz.refresh_memberships()` in the same transaction as any change
-to `members` or `backedBy`. They are the database's copy of what OpenFGA
-computes from the same tuples. They are never written by hand, and the nightly
+to a privileged link (`members`, `backedBy`, `admins`, `auditors`, `editors`).
+They are the database's copy of what OpenFGA computes from the same tuples. They are never written by hand, and the nightly
 consistency check, which evaluates the OpenFGA model over `authz.fga_tuples` and
 compares it with `api.resource` for every user, catches any drift between the
 two.
@@ -242,7 +277,8 @@ nothing.
 
 No role but the owner can `insert` into a `catalog` table. Sources call
 `catalog.ingest` and `catalog.retract`. Users write through `api.update`,
-which checks `can_edit`, and `can_transfer` for ownership changes, then calls
+which checks `can_edit`, and `can_transfer` for ownership and access-granting
+changes, then calls
 `catalog.ingest` as the `manual` source with the user as actor. Platform
 configuration arrives through `catalog.define_kind` and
 `catalog.define_source`, from the git reconciler.
@@ -331,6 +367,9 @@ Decided here:
   trigger; single-valued conflicts resolved by `manual` first, then earliest.
 - `effective_owners` and flattened membership materialised synchronously,
   inside the write transaction.
+- Users, groups, teams and the platform are resources; membership and grants
+  (admins, auditors, kind editors) are privileged links. `authz` holds only
+  derived data.
 - Visibility as one `security_barrier` view over tables the service role
   cannot read, not row-level security; viewer passed as a session setting.
 - All writes through `security definer` functions; integrity rules that must

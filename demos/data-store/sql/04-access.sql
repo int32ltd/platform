@@ -262,11 +262,14 @@ begin
   if not authz.viewer_can_edit(v_res.kind, v_res.effective_owners) then
     raise exception '% lacks can_edit on %', v_viewer, p_ref using errcode = '42501';
   end if;
+  -- Changing an owner, or any link that grants access (backedBy, platform
+  -- admins/auditors, kind editors), is privileged. Otherwise a team member
+  -- could put another group behind their team, or an editor widen their own grant.
   if exists (select 1 from catalog.link_type lt
-              where lt.kind_id = v_res.kind and lt.ownership = 'grants'
+              where lt.kind_id = v_res.kind and (lt.ownership = 'grants' or lt.privileged)
                 and coalesce(p_links, '{}') ? lt.name)
      and not authz.viewer_can_transfer(v_res.kind) then
-    raise exception '% lacks can_transfer on %: ownership changes are privileged', v_viewer, p_ref
+    raise exception '% lacks can_transfer on %: ownership and access-granting links are privileged', v_viewer, p_ref
       using errcode = '42501';
   end if;
   select pc.property, pc.source_id into v_claim
@@ -305,23 +308,22 @@ create view authz.fga_tuples as
   union
   select format('resource:%s/%s', r.kind, r.identifier), 'kind', 'kind:' || r.kind
     from catalog.resource r
-   where r.deleted_at is null and r.kind not in ('user', 'identity_group', 'team')
+   where r.deleted_at is null and r.kind not in ('user', 'identity_group', 'team', 'platform')
   union
   select format('resource:%s/%s', r.kind, r.identifier), 'owner', o
     from catalog.resource r, unnest(r.effective_owners) o
-   where r.deleted_at is null and r.kind not in ('user', 'identity_group', 'team')
+   where r.deleted_at is null and r.kind not in ('user', 'identity_group', 'team', 'platform')
   union
   select 'kind:' || k.id, 'platform', 'platform:default' from catalog.kind k
   union
   select 'kind:' || k.id, 'org_viewer', 'user:*' from catalog.kind k where k.visibility = 'org'
   union
-  select 'kind:' || kg.kind_id, kg.relation,
-         kg.principal_ref || '#member'
-    from authz.kind_grant kg
-  union
-  select 'platform:default', pg.role,
-         pg.principal_ref || case when pg.principal_ref like 'identity_group:%' then '#member' else '' end
-    from authz.platform_grant pg;
+  -- kind editors and platform admins/auditors, from links on the kind and
+  -- platform resources
+  select case ag.object_kind when 'kind' then 'kind:' || ag.object_identifier else 'platform:default' end,
+         ag.relation,
+         ag.principal_ref || case when ag.principal_kind = 'user' then '' else '#member' end
+    from authz.access_grant ag;
 
 -- Diagnostic for platform admins (not granted to catalog_api): what each live
 -- user may do with one resource, evaluated by the same functions the API uses.
