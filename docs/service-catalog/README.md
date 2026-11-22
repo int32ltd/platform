@@ -20,6 +20,9 @@ GitHub repo, a Kubernetes workload, an SQS queue, an RDS instance), with the
 ownership resolver, the visibility rules and the OpenFGA tuples computed live.
 Open `index.html` in a browser. No build, no dependencies, no network calls.
 
+The PostgreSQL schema behind it is designed in
+[`../data-store/`](../data-store/README.md).
+
 ## Diagram
 
 ![Service Catalog Components](./diagrams/service-catalog-components.drawio.png)
