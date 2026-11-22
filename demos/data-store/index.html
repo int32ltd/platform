@@ -936,7 +936,27 @@ const originsOf = (t) => Object.keys(ORIGIN).map((o) => [o, t.columns.filter((c)
 const shown = { catalog: true, authz: true, api: true };
 
 /* ---------- layout: columns stacked top to bottom ---------- */
-const NW = 196, COLX = [24, 246, 468, 712, 956], HEAD = 26, ROW = 15, GAP = 20, TOP = 46;
+const NW = 196, COLX = [24, 246, 468, 712, 956], HEAD = 26, ROW = 15, GAP = 20;
+// Schema groups: name on one line, description wrapped to the group's width
+// below it (SVG text does not wrap). Tables start under the tallest header.
+const GROUPS = [
+  { s: "catalog", x0: COLX[0] - 12, x1: COLX[2] + NW + 12 },
+  { s: "authz", x0: COLX[3] - 12, x1: COLX[3] + NW + 12 },
+  { s: "api", x0: COLX[4] - 12, x1: COLX[4] + NW + 12 },
+];
+const ABOUT_CHAR = 6.3, ABOUT_LINE = 13, ABOUT_Y = 46;   // 10px mono, ~0.6em per glyph
+function wrapText(text, maxChars) {
+  const lines = [];
+  let cur = "";
+  for (const w of text.split(/\s+/)) {
+    if (cur && (cur + " " + w).length > maxChars) { lines.push(cur); cur = w; }
+    else cur = cur ? cur + " " + w : w;
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+for (const g of GROUPS) g.about = wrapText(D.schemas[g.s].about, Math.floor((g.x1 - g.x0 - 24) / ABOUT_CHAR));
+const TOP = ABOUT_Y + (Math.max(...GROUPS.map((g) => g.about.length)) - 1) * ABOUT_LINE + 16;
 const keyCols = (t) => t.columns.filter((c) => c.key || c.fk || c.ref);
 function layout() {
   const ys = COLX.map(() => TOP), P = {};
@@ -977,17 +997,13 @@ function focusSet() {
 
 function renderGraph() {
   const focus = focusSet();
-  const groups = [
-    { s: "catalog", x0: COLX[0] - 12, x1: COLX[2] + NW + 12 },
-    { s: "authz", x0: COLX[3] - 12, x1: COLX[3] + NW + 12 },
-    { s: "api", x0: COLX[4] - 12, x1: COLX[4] + NW + 12 },
-  ];
   let svg = "";
-  for (const g of groups) {
+  for (const g of GROUPS) {
     if (!shown[g.s]) continue;
+    const about = g.about.map((line, i) =>
+      `<text x="${g.x0 + 12}" y="${ABOUT_Y + i * ABOUT_LINE}" fill="var(--ink-3)" style="text-transform:none;letter-spacing:0">${esc(line)}</text>`).join("");
     svg += `<g class="grp"><rect x="${g.x0}" y="12" width="${g.x1 - g.x0}" height="${H - 4}" rx="6" stroke="${SCHEMA_COLOR[g.s]}" opacity=".55"/>
-      <text x="${g.x0 + 12}" y="32" fill="${SCHEMA_COLOR[g.s]}">${g.s}</text>
-      <text x="${g.x0 + 12 + g.s.length * 8.6 + 8}" y="32" fill="var(--ink-3)" style="text-transform:none;letter-spacing:0">— ${esc(D.schemas[g.s].about)}</text></g>`;
+      <text x="${g.x0 + 12}" y="30" fill="${SCHEMA_COLOR[g.s]}">${g.s}</text>${about}</g>`;
   }
   for (const e of D.edges) {
     if (!shown[schemaOf(e.from)] || !shown[schemaOf(e.to)]) continue;
