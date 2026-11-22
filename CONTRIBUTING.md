@@ -15,11 +15,17 @@ pull request:
   derived cache, computed on read) and `by` (what sets it), plus its purpose,
   rules, `writtenBy`/`readBy`, edges, and the guided tour if the logic it
   explains changed;
-- [`docs/data-store/reference.md`](./docs/data-store/reference.md).
+- [`docs/data-store/reference.md`](./docs/data-store/reference.md);
+- [`demos/data-store/flows.html`](./demos/data-store/flows.html) ("How it
+  works") when the change alters a flow it walks through: defining a kind,
+  ingesting an instance, permissions, or ownership propagation. Its example
+  rows come from running those scenarios against the seed, so re-run them
+  and update the rows.
 
 `./demo.sh test` (in `demos/data-store/`) runs `check-page`, which compares the
 page with the live database and fails, showing the difference, while they
-disagree. Changes to logic that leave the shape alone (a function body, a
+disagree. It also fails if `flows.html` names a table, view or function that
+isn't on the schema page. Changes to logic that leave the shape alone (a function body, a
 rule) aren't caught by the check, so update the page's text for those by hand.
 
 ## License

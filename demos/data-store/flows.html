@@ -1,0 +1,791 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="color-scheme" content="light dark">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Catalog Data Store Flows</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root {
+    color-scheme: light;
+    --ground: #eef1f5;
+    --surface: #ffffff;
+    --surface-2: #f6f8fa;
+    --surface-3: #e9edf2;
+    --line: #d3dae2;
+    --line-soft: #e3e8ee;
+    --ink: #121820;
+    --ink-2: #4a5663;
+    --ink-3: #78838f;
+    --accent: #0d7a84;
+    --accent-ink: #085a62;
+    --accent-soft: #d6eced;
+    --ok: #1d7340;
+    --ok-soft: #dcefe3;
+    --deny: #ab382c;
+    --deny-soft: #fae6e3;
+    --o-external: #b8650a;
+    --o-config: #a3367a;
+    --o-generated: #0d7a84;
+    --o-derived: #4f5fcf;
+    --o-computed: #8a96a3;
+    --shadow: 0 1px 2px rgba(18, 24, 32, .06), 0 8px 24px -16px rgba(18, 24, 32, .25);
+    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans: "IBM Plex Sans", system-ui, -apple-system, Segoe UI, sans-serif;
+    --cond: "IBM Plex Sans Condensed", "IBM Plex Sans", system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --ground: #0e1319; --surface: #161c24; --surface-2: #1b222b; --surface-3: #232b35;
+      --line: #2e3844; --line-soft: #242c36; --ink: #e7ecf2; --ink-2: #a7b2bf; --ink-3: #7c8794;
+      --accent: #3fb3bd; --accent-ink: #7fd3da; --accent-soft: #15353a;
+      --ok: #5cbd83; --ok-soft: #173323; --deny: #e8897c; --deny-soft: #3a1f1b;
+      --o-external: #e6a65a; --o-config: #e07fb8; --o-generated: #3fb3bd; --o-derived: #96a2f2; --o-computed: #8f9aa6;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 10px 30px -18px rgba(0, 0, 0, .8);
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --ground: #0e1319; --surface: #161c24; --surface-2: #1b222b; --surface-3: #232b35;
+    --line: #2e3844; --line-soft: #242c36; --ink: #e7ecf2; --ink-2: #a7b2bf; --ink-3: #7c8794;
+    --accent: #3fb3bd; --accent-ink: #7fd3da; --accent-soft: #15353a;
+    --ok: #5cbd83; --ok-soft: #173323; --deny: #e8897c; --deny-soft: #3a1f1b;
+    --o-external: #e6a65a; --o-config: #e07fb8; --o-generated: #3fb3bd; --o-derived: #96a2f2; --o-computed: #8f9aa6;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 10px 30px -18px rgba(0, 0, 0, .8);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ground); color: var(--ink); font-family: var(--sans); font-size: 13px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+  h1, h2, h3 { margin: 0; text-wrap: balance; }
+  button { font: inherit; color: inherit; }
+  a { color: var(--accent-ink); }
+  code, .mono { font-family: var(--mono); }
+  code { font-size: .92em; background: var(--surface-3); padding: 0 4px; border-radius: 2px; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .eyebrow { font-family: var(--mono); font-size: 9.5px; font-weight: 500; letter-spacing: .13em; text-transform: uppercase; color: var(--ink-3); }
+
+  .app { display: grid; grid-template-columns: 268px minmax(0, 1fr) 400px; grid-template-rows: auto minmax(0, 1fr); height: 100vh; min-height: 680px; }
+  header.top { grid-column: 1 / -1; display: flex; align-items: center; gap: 20px; flex-wrap: wrap; padding: 12px 20px; background: var(--surface); border-bottom: 1px solid var(--line); }
+  .brand { display: flex; flex-direction: column; gap: 1px; }
+  .brand .back { font-family: var(--mono); font-size: 10px; letter-spacing: .06em; color: var(--ink-3); text-decoration: none; margin-bottom: 2px; align-self: flex-start; }
+  .brand .back:hover { color: var(--accent-ink); }
+  .brand h1 { font-family: var(--cond); font-size: 19px; font-weight: 700; letter-spacing: -.005em; }
+  .brand .sub { font-size: 11.5px; color: var(--ink-3); }
+  .pagetabs { display: flex; gap: 2px; margin-left: auto; border: 1px solid var(--line); border-radius: 3px; overflow: hidden; }
+  .pagetabs a { padding: 6px 14px; font-size: 12px; text-decoration: none; color: var(--ink-2); background: var(--surface); border-right: 1px solid var(--line-soft); }
+  .pagetabs a:last-child { border-right: 0; }
+  .pagetabs a:hover { background: var(--surface-2); }
+  .pagetabs a[aria-current="page"] { background: var(--accent); color: #fff; font-weight: 500; }
+  :root[data-theme="dark"] .pagetabs a[aria-current="page"] { color: #06181a; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .pagetabs a[aria-current="page"] { color: #06181a; } }
+
+  .btn { padding: 6px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 3px; font-size: 12px; cursor: pointer; }
+  .btn:hover:not(:disabled) { background: var(--surface-2); border-color: var(--ink-3); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 500; }
+  :root[data-theme="dark"] .btn.primary { color: #06181a; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .btn.primary { color: #06181a; } }
+  .btn.primary:hover:not(:disabled) { background: var(--accent-ink); border-color: var(--accent-ink); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn.sm { padding: 3px 8px; font-size: 11px; }
+
+  /* rail */
+  .rail { background: var(--surface); border-right: 1px solid var(--line); overflow-y: auto; padding-bottom: 24px; }
+  .rail section { padding: 14px 16px; border-bottom: 1px solid var(--line-soft); }
+  .rail h2 { font-family: var(--cond); font-size: 13px; font-weight: 700; letter-spacing: .01em; margin-bottom: 8px; }
+  .rail p { margin: 0 0 8px; color: var(--ink-2); }
+  .scen { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+  .scen button { width: 100%; text-align: left; background: none; border: 1px solid transparent; border-radius: 3px; padding: 7px 8px; cursor: pointer; display: grid; grid-template-columns: 20px 1fr; gap: 6px; }
+  .scen button:hover { background: var(--surface-2); }
+  .scen button[aria-current="true"] { background: var(--accent-soft); border-color: var(--accent); }
+  .scen .n { font-family: var(--mono); font-size: 11px; font-weight: 600; color: var(--accent-ink); padding-top: 1px; }
+  .scen .t { font-weight: 600; font-size: 12.5px; }
+  .scen .d { display: block; color: var(--ink-3); font-size: 11.5px; font-weight: 400; }
+  .steps { list-style: none; margin: 0; padding: 0; }
+  .steps button { width: 100%; text-align: left; background: none; border: 0; padding: 4px 6px; border-radius: 3px; cursor: pointer; color: var(--ink-2); display: flex; gap: 8px; }
+  .steps button:hover { background: var(--surface-2); }
+  .steps button[aria-current="true"] { background: var(--accent-soft); color: var(--accent-ink); }
+  .steps .n { font-family: var(--mono); font-size: 10px; color: var(--ink-3); width: 14px; flex: none; padding-top: 1px; }
+  .legend-row { display: flex; align-items: center; gap: 8px; margin: 4px 0; color: var(--ink-2); font-size: 12px; }
+  .sw { width: 22px; height: 12px; border-radius: 2px; border: 1.5px solid; flex: none; }
+
+  /* canvas */
+  .canvas { overflow: auto; display: flex; flex-direction: column; min-height: 0; }
+  .diagram { background: var(--surface); border-bottom: 1px solid var(--line); padding: 10px 14px 6px; }
+  .diagram .cap { display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; }
+  .diagram .cap h2 { font-family: var(--cond); font-size: 15px; font-weight: 700; }
+  svg.flow { display: block; width: 100%; height: auto; min-width: 760px; }
+  .fnode .box { fill: var(--surface); stroke-width: 1.5; }
+  .fnode .lb { font-family: var(--mono); font-size: 11px; font-weight: 600; fill: var(--ink); }
+  .fnode .sb { font-family: var(--mono); font-size: 9.5px; fill: var(--ink-3); }
+  .fnode .tp { font-family: var(--mono); font-size: 8px; letter-spacing: .1em; text-transform: uppercase; }
+  .fnode.dim { opacity: .3; }
+  .fnode.on .box { stroke-width: 2.5; filter: drop-shadow(0 2px 6px rgba(13, 122, 132, .25)); }
+  .fnode.view .box { stroke-dasharray: 5 3; }
+  .fedge { fill: none; stroke: var(--ink-3); stroke-width: 1; opacity: .18; }
+  .fedge.on { stroke: var(--accent); stroke-width: 2; opacity: 1; stroke-dasharray: 6 4; animation: flow 1s linear infinite; }
+  .fedge.done { opacity: .45; }
+  .felab { font-family: var(--mono); font-size: 9.5px; fill: var(--accent-ink); paint-order: stroke; stroke: var(--surface); stroke-width: 4px; font-weight: 500; }
+  @keyframes flow { to { stroke-dashoffset: -20; } }
+  @media (prefers-reduced-motion: reduce) { .fedge.on { animation: none; } }
+
+  .cards { padding: 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); gap: 14px; align-content: start; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 4px; box-shadow: var(--shadow); overflow: hidden; }
+  .card .hd { display: flex; align-items: baseline; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line-soft); background: var(--surface-2); }
+  .card .hd .nm { font-family: var(--mono); font-weight: 600; font-size: 12px; }
+  .card .hd .nt { color: var(--ink-3); font-size: 11.5px; }
+  .card .bd { padding: 0; overflow-x: auto; }
+  .card table { border-collapse: collapse; width: 100%; font-family: var(--mono); font-size: 11px; }
+  .card th { text-align: left; font-weight: 500; color: var(--ink-3); font-size: 10px; padding: 6px 10px; border-bottom: 1px solid var(--line-soft); white-space: nowrap; }
+  .card td { padding: 5px 10px; border-bottom: 1px solid var(--line-soft); vertical-align: top; white-space: pre-wrap; word-break: break-word; }
+  .card tr:last-child td { border-bottom: 0; }
+  .card tr.new td { background: var(--ok-soft); }
+  .card tr.gone td { background: var(--deny-soft); text-decoration: line-through; color: var(--ink-3); }
+  .card td.hl { background: var(--accent-soft); color: var(--accent-ink); font-weight: 600; }
+  .card pre { margin: 0; padding: 10px 12px; font-family: var(--mono); font-size: 11px; white-space: pre-wrap; color: var(--ink); }
+  .verdict { display: inline-block; font-family: var(--mono); font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 2px; }
+  .verdict.yes { background: var(--ok-soft); color: var(--ok); }
+  .verdict.no { background: var(--deny-soft); color: var(--deny); }
+
+  /* step panel */
+  .insp { background: var(--surface); border-left: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+  .insp .hd { padding: 14px 18px 10px; border-bottom: 1px solid var(--line-soft); }
+  .insp .hd .num { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); }
+  .insp .hd h3 { font-family: var(--cond); font-size: 20px; font-weight: 700; margin-top: 2px; }
+  .insp .body { overflow-y: auto; padding: 14px 18px 18px; flex: 1; color: var(--ink-2); }
+  .insp .body p { margin: 0 0 10px; }
+  .insp .body h4 { font-family: var(--cond); font-size: 13px; font-weight: 700; margin: 14px 0 6px; color: var(--ink); }
+  .insp pre.call { font-family: var(--mono); font-size: 11px; background: var(--surface-2); border: 1px solid var(--line-soft); border-radius: 3px; padding: 8px 10px; white-space: pre-wrap; margin: 0 0 10px; color: var(--ink); }
+  .insp ul { margin: 0 0 10px; padding-left: 18px; }
+  .insp li { margin: 3px 0; }
+  .insp li::marker { color: var(--accent); }
+  .insp .nav { display: flex; gap: 6px; align-items: center; padding: 10px 18px; border-top: 1px solid var(--line-soft); }
+  .insp .nav .pos { margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--ink-3); }
+  .insp .schema-links a { font-family: var(--mono); font-size: 11px; margin-right: 8px; }
+
+  @media (max-width: 1100px) {
+    .app { grid-template-columns: 1fr; grid-template-rows: auto auto auto auto; height: auto; }
+    .rail { border-right: 0; border-bottom: 1px solid var(--line); }
+    .insp { border-left: 0; border-top: 1px solid var(--line); }
+    .pagetabs { margin-left: 0; }
+  }
+  @media (max-width: 600px) { header.top { padding: 12px 16px; } .cards { padding: 12px; } }
+</style>
+
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <a class="back" href="../index.html">← All demos</a>
+      <h1>Catalog Data Store: how it works</h1>
+      <div class="sub">Worked examples, with the rows each step writes. Captured from the real schema in <a href="https://github.com/int32ltd/platform/tree/main/demos/data-store">demos/data-store</a>.</div>
+    </div>
+    <nav class="pagetabs" aria-label="Data store pages">
+      <a href="index.html">Schema</a>
+      <a href="flows.html" aria-current="page">How it works</a>
+    </nav>
+  </header>
+
+  <aside class="rail">
+    <section>
+      <h2>Scenarios</h2>
+      <ol class="scen" id="scen"></ol>
+    </section>
+    <section>
+      <h2>Steps</h2>
+      <ol class="steps" id="steps"></ol>
+    </section>
+    <section style="border-bottom:0">
+      <h2>Legend</h2>
+      <div class="legend-row"><span class="sw" style="border-color:var(--o-config)"></span>git (platform config)</div>
+      <div class="legend-row"><span class="sw" style="border-color:var(--o-external)"></span>outside: a source connector or a user</div>
+      <div class="legend-row"><span class="sw" style="border-color:var(--o-generated)"></span>function or trigger in the store</div>
+      <div class="legend-row"><span class="sw" style="border-color:var(--line)"></span>table</div>
+      <div class="legend-row"><span class="sw" style="border-color:var(--o-derived)"></span>derived table (a cache)</div>
+      <div class="legend-row"><span class="sw" style="border-color:var(--o-computed);border-style:dashed"></span>view (computed on read)</div>
+      <div class="legend-row"><svg width="34" height="10"><line x1="0" y1="5" x2="34" y2="5" stroke="var(--accent)" stroke-width="2" stroke-dasharray="6 4"/></svg>happening in this step</div>
+      <div class="legend-row"><span class="verdict yes" style="width:auto">new</span><span class="verdict no">removed</span> rows in the data cards</div>
+    </section>
+  </aside>
+
+  <main class="canvas">
+    <div class="diagram">
+      <div class="cap"><span class="eyebrow" id="scen-eyebrow"></span><h2 id="scen-title"></h2></div>
+      <svg class="flow" id="flow" role="img" aria-label="Data flow for the current step"></svg>
+    </div>
+    <div class="cards" id="cards" aria-live="polite"></div>
+  </main>
+
+  <aside class="insp">
+    <div class="hd"><div class="num" id="snum"></div><h3 id="stitle"></h3></div>
+    <div class="body" id="sbody"></div>
+    <div class="nav">
+      <button class="btn sm" id="prev">Back</button>
+      <button class="btn sm primary" id="next">Next</button>
+      <span class="pos" id="pos"></span>
+    </div>
+  </aside>
+</div>
+
+<!--
+  FLOW DATA — the single source for this page.
+
+  Keep it in sync with demos/data-store/sql/. Every node with a "ref" must name
+  a table, view or function that exists on the schema page (index.html);
+  `./demo.sh check-page` fails otherwise. The example rows were captured by
+  running these scenarios against the seeded database; when the write path,
+  ownership or permission logic changes, re-run them and update the rows.
+-->
+<script type="application/json" id="flow-data">
+{
+  "scenarios": [
+    {
+      "id": "kind",
+      "title": "Define and evolve a kind",
+      "summary": "A new resource type arrives from git. No migration, no deploy.",
+      "nodes": [
+        { "id": "git", "type": "config", "label": "git", "sub": "kinds/gcp_bucket.yaml", "x": 20, "y": 110 },
+        { "id": "define_kind", "type": "fn", "ref": "catalog.define_kind", "label": "define_kind", "sub": "catalog", "x": 250, "y": 110 },
+        { "id": "kind", "type": "table", "ref": "catalog.kind", "label": "kind", "sub": "typed projection", "x": 500, "y": 20 },
+        { "id": "link_type", "type": "table", "ref": "catalog.link_type", "label": "link_type", "sub": "declared links", "x": 500, "y": 90 },
+        { "id": "ingest", "type": "fn", "ref": "catalog.ingest", "label": "ingest", "sub": "as source manual", "x": 500, "y": 190 },
+        { "id": "resource", "type": "table", "ref": "catalog.resource", "label": "resource", "sub": "kind:gcp_bucket", "x": 760, "y": 150 },
+        { "id": "change_log", "type": "table", "ref": "catalog.change_log", "label": "change_log", "sub": "audit + outbox", "x": 760, "y": 230 }
+      ],
+      "edges": [
+        { "id": "e1", "from": "git", "to": "define_kind", "label": "on merge" },
+        { "id": "e2", "from": "define_kind", "to": "kind", "label": "upsert" },
+        { "id": "e3", "from": "define_kind", "to": "link_type", "label": "upsert" },
+        { "id": "e4", "from": "define_kind", "to": "ingest", "label": "the kind is a resource" },
+        { "id": "e5", "from": "ingest", "to": "resource", "label": "kind:gcp_bucket" },
+        { "id": "e6", "from": "ingest", "to": "change_log", "label": "log_change" }
+      ],
+      "steps": [
+        {
+          "title": "A kind is a document in git",
+          "on": ["git", "define_kind"], "edges": ["e1"],
+          "body": "<p>The platform team wants the catalog to know about Google Cloud Storage buckets. They add a kind document to the platform repository: its properties as JSON Schema, and its links.</p><p>The one link, <code>component</code>, is marked <b>inherits</b>: a bucket takes its owner from the component it belongs to. Nobody will ever set an owner on a bucket directly.</p><p>When the change merges, the git reconciler calls <code>define_kind</code> with the document.</p>",
+          "call": "select catalog.define_kind('{\n  \"identifier\": \"gcp_bucket\", \"title\": \"GCS bucket\",\n  \"staleAfter\": \"2 days\",\n  \"schema\": {\"properties\": {\n    \"location\": {\"type\": \"string\"},\n    \"storageClass\": {\"type\": \"string\"},\n    \"publicAccess\": {\"type\": \"boolean\"}}},\n  \"links\": {\"component\": {\"target\": \"component\",\n                          \"ownership\": \"inherits\"}}}');",
+          "cards": [
+            { "type": "code", "title": "kinds/gcp_bucket.yaml", "note": "what the platform team writes", "code": "kind: kind\nidentifier: gcp_bucket\ntitle: GCS bucket\nstaleAfter: 2 days\nschema:\n  properties:\n    location:     { type: string }\n    storageClass: { type: string }\n    publicAccess: { type: boolean }\nlinks:\n  component:\n    target: component\n    ownership: inherits    # owner comes from the component\nvisibility: owner          # the default" }
+          ]
+        },
+        {
+          "title": "Two rows describe the kind",
+          "on": ["define_kind", "kind", "link_type"], "edges": ["e2", "e3"],
+          "body": "<p><code>define_kind</code> upserts the <b>typed projection</b> that the write path validates against: one <code>kind</code> row and one <code>link_type</code> row per declared link.</p><p>From now on, <code>ingest</code> accepts <code>gcp_bucket</code> resources, and the <code>link_validate</code> trigger accepts a <code>component</code> link from a bucket, but only to a <code>component</code>.</p><p>No <code>create table</code> ran. Every kind shares <code>catalog.resource</code>.</p>",
+          "cards": [
+            { "type": "rows", "title": "catalog.kind", "note": "1 row inserted",
+              "cols": ["id", "visibility", "sensitive_properties", "identity_keys", "stale_after"],
+              "rows": [{ "s": "new", "v": ["gcp_bucket", "owner", "{}", "{}", "2 days"] }] },
+            { "type": "rows", "title": "catalog.link_type", "note": "1 row inserted",
+              "cols": ["kind_id", "name", "target_kinds", "many", "ownership", "privileged"],
+              "rows": [{ "s": "new", "v": ["gcp_bucket", "component", "{component}", "f", "inherits", "f"] }] }
+          ]
+        },
+        {
+          "title": "The kind is itself a resource",
+          "on": ["define_kind", "ingest", "resource", "change_log"], "edges": ["e4", "e5", "e6"],
+          "body": "<p>A kind is also a resource of the built-in kind <code>kind</code>. <code>define_kind</code> ingests <code>kind:gcp_bucket</code> through the ordinary write path, as source <code>manual</code> with actor <code>git</code>.</p><p>So a schema change is audited exactly like a data change: it gets a version, a diff, and a change-log row that consumers see.</p>",
+          "call": "-- inside define_kind:\nperform catalog.ingest('manual', 'kind', 'gcp_bucket', 'GCS bucket',\n  jsonb_build_object('definition', doc),\n  p_actor_type => 'system', p_actor => 'git');",
+          "cards": [
+            { "type": "rows", "title": "catalog.resource", "note": "the kind's own row",
+              "cols": ["ref", "kind", "version", "properties"],
+              "rows": [{ "s": "new", "v": ["kind:gcp_bucket", "kind", "1", "{\"definition\": {…the document…}}"] }] },
+            { "type": "rows", "title": "catalog.change_log", "note": "appended",
+              "cols": ["resource_ref", "version", "op", "actor_type", "actor"],
+              "rows": [{ "s": "new", "v": ["kind:gcp_bucket", "1", "create", "system", "git"] }] }
+          ]
+        },
+        {
+          "title": "Evolving it: same call, a diff in the log",
+          "on": ["git", "define_kind", "kind", "ingest", "resource", "change_log"], "edges": ["e1", "e2", "e5", "e6"],
+          "body": "<p>Later the team adds a <code>sizeBytes</code> property and marks <code>publicAccess</code> as <b>sensitive</b>: it is redacted for anyone who can list buckets without full access (kind-wide readers, or everyone if the kind is ever made <code>org</code>-visible).</p><p>It's the same document and the same call. The <code>kind</code> row is updated and <code>kind:gcp_bucket</code> moves to version 2, with the before and after definition in the change log.</p><p>Adding properties is always safe. Removing or retyping one is a new major version with a migration that rewrites existing resources.</p>",
+          "call": "select catalog.define_kind('{ … ,\n  \"sensitive\": [\"publicAccess\"],\n  \"schema\": {\"properties\": { … ,\n    \"sizeBytes\": {\"type\": \"integer\"}}} }');",
+          "cards": [
+            { "type": "rows", "title": "catalog.kind", "note": "1 row updated",
+              "cols": ["id", "sensitive_properties", "updated_at"],
+              "rows": [{ "s": "", "v": ["gcp_bucket", "{publicAccess}", "now()"], "hl": [1] }] },
+            { "type": "rows", "title": "catalog.change_log", "note": "appended",
+              "cols": ["resource_ref", "version", "op", "diff"],
+              "rows": [
+                { "s": "", "v": ["kind:gcp_bucket", "1", "create", "{\"properties\": {\"definition\": {\"from\": null, \"to\": {…}}}}"] },
+                { "s": "new", "v": ["kind:gcp_bucket", "2", "update", "{\"properties\": {\"definition\": {\"from\": {…}, \"to\": {… \"sensitive\": [\"publicAccess\"] …}}}}"] }
+              ] }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "instance",
+      "title": "Create an instance",
+      "summary": "A connector reports a bucket. Ownership is worked out, not typed in.",
+      "nodes": [
+        { "id": "conn", "type": "external", "label": "gcp-prod", "sub": "source connector", "x": 20, "y": 120 },
+        { "id": "ingest", "type": "fn", "ref": "catalog.ingest", "label": "ingest", "sub": "one transaction", "x": 230, "y": 120 },
+        { "id": "rs", "type": "table", "ref": "catalog.resource_source", "label": "resource_source", "sub": "what gcp-prod said", "x": 450, "y": 20 },
+        { "id": "resource", "type": "table", "ref": "catalog.resource", "label": "resource", "sub": "the bucket", "x": 450, "y": 120 },
+        { "id": "link", "type": "table", "ref": "catalog.link", "label": "link", "sub": "component assertion", "x": 450, "y": 220 },
+        { "id": "merge", "type": "fn", "ref": "catalog.merge_properties", "label": "merge_properties", "sub": "uses property_claim", "x": 690, "y": 20 },
+        { "id": "validate", "type": "fn", "ref": "catalog.link_validate", "label": "link_validate", "sub": "trigger", "x": 690, "y": 270 },
+        { "id": "recompute", "type": "fn", "ref": "catalog.recompute_owners", "label": "recompute_owners", "sub": "→ owner_paths", "x": 690, "y": 145 },
+        { "id": "change_log", "type": "table", "ref": "catalog.change_log", "label": "change_log", "sub": "audit + outbox", "x": 230, "y": 260 },
+        { "id": "fga", "type": "view", "ref": "authz.fga_tuples", "label": "fga_tuples", "sub": "→ OpenFGA sync", "x": 920, "y": 220 }
+      ],
+      "edges": [
+        { "id": "e1", "from": "conn", "to": "ingest", "label": "ingest(…)" },
+        { "id": "e2", "from": "ingest", "to": "resource", "label": "resolve identity" },
+        { "id": "e3", "from": "ingest", "to": "rs", "label": "observed" },
+        { "id": "e4", "from": "rs", "to": "merge", "label": "read" },
+        { "id": "e5", "from": "merge", "to": "resource", "label": "properties" },
+        { "id": "e6", "from": "ingest", "to": "link", "label": "assert link" },
+        { "id": "e7", "from": "validate", "to": "link", "label": "check, to_id" },
+        { "id": "e8", "from": "link", "to": "recompute", "label": "inherits path" },
+        { "id": "e9", "from": "recompute", "to": "resource", "label": "effective_owners" },
+        { "id": "e10", "from": "ingest", "to": "change_log", "label": "log_change" },
+        { "id": "e11", "from": "resource", "to": "fga", "label": "owner tuple" }
+      ],
+      "steps": [
+        {
+          "title": "The connector reports a bucket",
+          "on": ["conn", "ingest"], "edges": ["e1"],
+          "body": "<p>The <code>gcp-prod</code> source (defined in git, allowed to write <code>gcp_bucket</code> and claiming its four properties) sees the bucket <code>checkout-assets</code> in project <code>acme-prod</code>.</p><p>Its mapping turns the bucket's label <code>platform-component=checkout-service</code> into a <code>component</code> link. That label is the only ownership information anyone supplies.</p>",
+          "call": "select catalog.ingest(\n  'gcp-prod', 'gcp_bucket', 'acme-prod/checkout-assets',\n  'checkout-assets',\n  '{\"location\": \"EU\", \"storageClass\": \"STANDARD\",\n    \"publicAccess\": false, \"sizeBytes\": 73400320}',\n  '{\"component\": \"component:checkout-service\"}',\n  '//storage.googleapis.com/checkout-assets');",
+          "cards": [
+            { "type": "code", "title": "GCS API → mapping", "note": "what the connector sees", "code": "bucket:   checkout-assets\nproject:  acme-prod\nlocation: EU\nclass:    STANDARD\nlabels:\n  platform-component: checkout-service   → link component:checkout-service" }
+          ]
+        },
+        {
+          "title": "Checks, then identity resolution",
+          "on": ["ingest", "resource"], "edges": ["e2"],
+          "body": "<p>Before anything is written, <code>ingest</code> checks that <code>gcp-prod</code> lists <code>gcp_bucket</code> in <code>writes_kinds</code>.</p><p>Then it asks: is this a resource we already know? It tries the exact <code>(kind, identifier)</code>, then the kind's <code>identity_keys</code> (none here). Nothing matches, so a new row is created. Its <code>ref</code> is generated: the stable id everything outside the database will use.</p>",
+          "cards": [
+            { "type": "rows", "title": "catalog.resource", "note": "inserted, still empty",
+              "cols": ["id", "ref", "title", "properties", "effective_owners"],
+              "rows": [{ "s": "new", "v": ["52", "gcp_bucket:acme-prod/checkout-assets", "checkout-assets", "{}", "{}"] }] }
+          ]
+        },
+        {
+          "title": "What the source said is kept as said",
+          "on": ["ingest", "rs", "merge", "resource"], "edges": ["e3", "e4", "e5"],
+          "body": "<p>The source's report goes into <code>resource_source.observed</code>, untouched.</p><p><code>merge_properties</code> then builds <code>resource.properties</code>: for each key, the source that claims it wins. Here <code>gcp-prod</code> claims all four, so all four apply, and <code>property_provenance</code> records who supplied each.</p><p>If a second source later reports the same bucket, both observations are kept and the merge decides again.</p>",
+          "cards": [
+            { "type": "rows", "title": "catalog.resource_source", "note": "inserted",
+              "cols": ["resource_id", "source_id", "external_id", "observed"],
+              "rows": [{ "s": "new", "v": ["52", "gcp-prod", "//storage.googleapis.com/checkout-assets", "{\"location\": \"EU\", \"sizeBytes\": 73400320,\n \"publicAccess\": false, \"storageClass\": \"STANDARD\"}"] }] },
+            { "type": "rows", "title": "catalog.resource", "note": "merged",
+              "cols": ["ref", "properties", "property_provenance"],
+              "rows": [{ "s": "", "v": ["gcp_bucket:acme-prod/checkout-assets", "{\"location\": \"EU\", \"sizeBytes\": 73400320,\n \"publicAccess\": false, \"storageClass\": \"STANDARD\"}", "{\"location\": \"gcp-prod\", \"sizeBytes\": \"gcp-prod\",\n \"publicAccess\": \"gcp-prod\", \"storageClass\": \"gcp-prod\"}"], "hl": [1, 2] }] }
+          ]
+        },
+        {
+          "title": "The link is validated and attached",
+          "on": ["ingest", "link", "validate"], "edges": ["e6", "e7"],
+          "body": "<p>The <code>component</code> assertion becomes a <code>link</code> row owned by <code>gcp-prod</code>. The <code>link_validate</code> trigger checks that <code>gcp_bucket</code> declares <code>component</code> and that the target is a <code>component</code>, then fills <code>to_id</code>, since checkout-service exists (id 39).</p><p>Had the component not been ingested yet, <code>to_id</code> would stay null: a <b>dangling</b> link that contributes no owner until <code>attach_dangling</code> connects it.</p>",
+          "cards": [
+            { "type": "rows", "title": "catalog.link", "note": "inserted",
+              "cols": ["from_id", "name", "to_ref", "to_id", "source_id", "applied"],
+              "rows": [{ "s": "new", "v": ["52", "component", "component:checkout-service", "39", "gcp-prod", "t"], "hl": [3] }] }
+          ]
+        },
+        {
+          "title": "Ownership is resolved",
+          "on": ["link", "recompute", "resource"], "edges": ["e8", "e9"],
+          "body": "<p>A new resource always gets its owners computed. <code>recompute_owners</code> calls the resolver, <code>owner_paths</code>: the bucket has no <b>grants</b> link, so it follows the <b>inherits</b> link to the component, which names its team.</p><p>The answer is stored in <code>effective_owners</code>, so every later read checks an indexed array instead of walking the graph.</p>",
+          "cards": [
+            { "type": "rows", "title": "catalog.owner_paths(52)", "note": "the proof",
+              "cols": ["owner_ref", "path"],
+              "rows": [{ "s": "", "v": ["team:payments", "gcp_bucket:acme-prod/checkout-assets\n  --component--> component:checkout-service\n  --owner--> team:payments"] }] },
+            { "type": "rows", "title": "catalog.resource", "note": "updated",
+              "cols": ["ref", "effective_owners", "version"],
+              "rows": [{ "s": "", "v": ["gcp_bucket:acme-prod/checkout-assets", "{team:payments}", "2"], "hl": [1] }] }
+          ]
+        },
+        {
+          "title": "Logged, then published",
+          "on": ["ingest", "change_log", "resource", "fga"], "edges": ["e10", "e11"],
+          "body": "<p>Two change-log rows record what happened: the creation with its full diff, then the ownership effect. They are written in the same transaction, by the same actor.</p><p>After commit, the <code>openfga-sync</code> consumer polls the log and writes the new tuples. OpenFGA receives the resolver's answer; it never re-derives ownership.</p>",
+          "cards": [
+            { "type": "rows", "title": "catalog.change_log", "note": "2 rows appended",
+              "cols": ["version", "op", "actor", "diff"],
+              "rows": [
+                { "s": "new", "v": ["1", "create", "gcp-prod", "{\"properties\": {\"location\": {\"from\": null, \"to\": \"EU\"}, …},\n \"links\": {\"component\": {\"added\": [\"component:checkout-service\"]}}}"] },
+                { "s": "new", "v": ["2", "owners", "gcp-prod", "{\"effectiveOwners\": {\"from\": [], \"to\": [\"team:payments\"]}}"] }
+              ] },
+            { "type": "rows", "title": "authz.fga_tuples", "note": "new tuples to write",
+              "cols": ["object", "relation", "subject"],
+              "rows": [
+                { "s": "new", "v": ["resource:gcp_bucket/acme-prod/checkout-assets", "kind", "kind:gcp_bucket"] },
+                { "s": "new", "v": ["resource:gcp_bucket/acme-prod/checkout-assets", "owner", "team:payments"] }
+              ] }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "access",
+      "title": "Apply permissions",
+      "summary": "Who sees the bucket, and why. No ACL anywhere.",
+      "nodes": [
+        { "id": "viewer", "type": "external", "label": "user request", "sub": "alice / carol / frank", "x": 20, "y": 40 },
+        { "id": "service", "type": "external", "label": "catalog service", "sub": "role catalog_api", "x": 20, "y": 150 },
+        { "id": "api", "type": "view", "ref": "api.resource", "label": "api.resource", "sub": "the visibility rule", "x": 250, "y": 95 },
+        { "id": "user_team", "type": "derived", "ref": "authz.user_team", "label": "user_team", "sub": "viewer's teams", "x": 490, "y": 10 },
+        { "id": "user_role", "type": "derived", "ref": "authz.user_role", "label": "user_role", "sub": "platform admin?", "x": 490, "y": 75 },
+        { "id": "ukg", "type": "derived", "ref": "authz.user_kind_grant", "label": "user_kind_grant", "sub": "kind-wide grants", "x": 490, "y": 140 },
+        { "id": "resource", "type": "table", "ref": "catalog.resource", "label": "resource", "sub": "effective_owners", "x": 490, "y": 205 },
+        { "id": "kind", "type": "table", "ref": "catalog.kind", "label": "kind", "sub": "visibility, sensitive", "x": 490, "y": 270 },
+        { "id": "refresh", "type": "fn", "ref": "authz.refresh_memberships", "label": "refresh_memberships", "sub": "same transaction", "x": 730, "y": 75 },
+        { "id": "link", "type": "table", "ref": "catalog.link", "label": "link", "sub": "membership + grant links", "x": 940, "y": 40 },
+        { "id": "grant", "type": "view", "ref": "authz.access_grant", "label": "access_grant", "sub": "grants, from links", "x": 730, "y": 170 },
+        { "id": "git", "type": "config", "label": "git", "sub": "editors: [team:search]", "x": 940, "y": 200 }
+      ],
+      "edges": [
+        { "id": "e1", "from": "viewer", "to": "service", "label": "authenticated" },
+        { "id": "e2", "from": "service", "to": "api", "label": "set catalog.viewer" },
+        { "id": "e3", "from": "user_team", "to": "api", "label": "teams" },
+        { "id": "e4", "from": "user_role", "to": "api", "label": "roles" },
+        { "id": "e5", "from": "ukg", "to": "api", "label": "kind grants" },
+        { "id": "e6", "from": "resource", "to": "api", "label": "owners" },
+        { "id": "e7", "from": "kind", "to": "api", "label": "visibility" },
+        { "id": "e8", "from": "link", "to": "refresh", "label": "membership" },
+        { "id": "e9", "from": "refresh", "to": "user_team", "label": "" },
+        { "id": "e10", "from": "refresh", "to": "user_role", "label": "" },
+        { "id": "e11", "from": "refresh", "to": "ukg", "label": "" },
+        { "id": "e12", "from": "link", "to": "grant", "label": "admins, editors" },
+        { "id": "e13", "from": "grant", "to": "refresh", "label": "" },
+        { "id": "e14", "from": "git", "to": "link", "label": "kind:gcp_bucket --editors-->" }
+      ],
+      "steps": [
+        {
+          "title": "Membership is already flattened",
+          "on": ["link", "refresh", "user_team", "user_role"], "edges": ["e8", "e9", "e10", "e12", "e13"],
+          "body": "<p>Before any request, the identity facts are links between ordinary resources: <code>alice</code> is in <code>eng-payments-leads</code>, which is nested in <code>eng-payments</code>, which backs <code>team:payments</code>. Frank's group is linked from <code>platform:default</code> as <code>admins</code>.</p><p>Whenever one of those privileged links changes, <code>refresh_memberships</code> rebuilds the flattened tables in the same transaction. Requests only read the result.</p>",
+          "cards": [
+            { "type": "code", "title": "the links behind it", "note": "catalog.link", "code": "identity_group:eng-payments-leads --members--> user:alice\nidentity_group:eng-payments --members--> identity_group:eng-payments-leads\nteam:payments --backedBy--> identity_group:eng-payments\nidentity_group:eng-search --members--> user:carol\nteam:search --backedBy--> identity_group:eng-search\nplatform:default --admins--> identity_group:platform-engineering\nidentity_group:platform-engineering --members--> user:frank" },
+            { "type": "rows", "title": "authz.user_team", "note": "derived",
+              "cols": ["user_ref", "team_ref"],
+              "rows": [{ "s": "", "v": ["user:alice", "team:payments"] }, { "s": "", "v": ["user:bob", "team:payments"] }, { "s": "", "v": ["user:carol", "team:search"] }, { "s": "", "v": ["user:dave", "team:search"] }, { "s": "", "v": ["user:frank", "team:platform"] }] },
+            { "type": "rows", "title": "authz.user_role", "note": "derived",
+              "cols": ["user_ref", "role"], "rows": [{ "s": "", "v": ["user:frank", "admin"] }] }
+          ]
+        },
+        {
+          "title": "Alice asks: owner member, full view",
+          "on": ["viewer", "service", "api", "user_team", "resource"], "edges": ["e1", "e2", "e3", "e6"],
+          "body": "<p>The catalog service authenticates Alice and runs her query as <code>catalog_api</code>, which can read nothing but the <code>api</code> views. It passes her identity as a session setting.</p><p><code>api.resource</code> applies one rule: show the row if its owners overlap the viewer's teams, or if the kind is readable to the viewer. <code>{team:payments} && {team:payments}</code> is true, so Alice sees the bucket, sensitive properties included.</p>",
+          "call": "set local catalog.viewer = 'user:alice';\nselect ref, properties, redacted\n  from api.resource where kind = 'gcp_bucket';",
+          "cards": [
+            { "type": "decision", "title": "api.resource for user:alice", "note": "",
+              "cols": ["check", "value", "result"],
+              "rows": [
+                { "v": ["viewer's teams", "{team:payments}", ""] },
+                { "v": ["effective_owners", "{team:payments}", ""] },
+                { "v": ["owners && teams", "true", "yes"] },
+                { "v": ["row visible", "", "yes"] },
+                { "v": ["sensitive properties", "owner member", "yes"] }
+              ] },
+            { "type": "rows", "title": "result", "note": "1 row",
+              "cols": ["ref", "properties", "redacted"],
+              "rows": [{ "s": "", "v": ["gcp_bucket:acme-prod/checkout-assets", "{\"location\": \"EU\", \"sizeBytes\": 73400320,\n \"publicAccess\": false, \"storageClass\": \"STANDARD\"}", "{}"] }] }
+          ]
+        },
+        {
+          "title": "Carol asks: the bucket does not exist for her",
+          "on": ["viewer", "service", "api", "user_team", "user_role", "ukg", "resource", "kind"], "edges": ["e2", "e3", "e4", "e5", "e6", "e7"],
+          "body": "<p>Carol is on Search. Her teams don't overlap the owners. The kind is <code>owner</code>-visible, she isn't an admin or auditor, and she holds no kind grant on <code>gcp_bucket</code>.</p><p>So the row is not returned. She doesn't get \"forbidden\", she gets nothing: the edges to it are hidden in <code>api.link</code> too, and agent context budgets are applied after filtering. She can't learn the bucket exists.</p>",
+          "call": "set local catalog.viewer = 'user:carol';\nselect count(*) from api.resource where kind = 'gcp_bucket';\n-- 0",
+          "cards": [
+            { "type": "decision", "title": "api.resource for user:carol", "note": "",
+              "cols": ["check", "value", "result"],
+              "rows": [
+                { "v": ["owners && teams", "{team:payments} && {team:search}", "no"] },
+                { "v": ["kind gcp_bucket readable?", "visibility owner; no grant; not admin", "no"] },
+                { "v": ["row visible", "", "no"] }
+              ] }
+          ]
+        },
+        {
+          "title": "Frank asks: platform admin",
+          "on": ["viewer", "service", "api", "user_role"], "edges": ["e2", "e4"],
+          "body": "<p>Frank owns nothing here, but <code>user_role</code> says he is an admin. That comes from the <code>admins</code> link on <code>platform:default</code>, not from a setting anywhere. Admins and auditors can read every kind, in full.</p>",
+          "cards": [
+            { "type": "decision", "title": "api.resource for user:frank", "note": "",
+              "cols": ["check", "value", "result"],
+              "rows": [
+                { "v": ["owners && teams", "{team:payments} && {team:platform}", "no"] },
+                { "v": ["platform role", "admin (platform:default --admins--> platform-engineering)", "yes"] },
+                { "v": ["row visible, full properties", "", "yes"] }
+              ] }
+          ]
+        },
+        {
+          "title": "Granting a kind-wide editor is a link",
+          "on": ["git", "link", "grant", "refresh", "ukg"], "edges": ["e14", "e12", "e13", "e11"],
+          "body": "<p>Search runs the asset pipeline and needs every bucket. The platform team adds <code>editors: [team:search]</code> to the kind in git. That becomes an <code>editors</code> link on <code>kind:gcp_bucket</code>: version 3 of the kind's resource, with a reason, in the change log.</p><p><code>editors</code> is a <b>privileged</b> link, so the change rebuilds the projections at once, and only an admin could make it through the API.</p>",
+          "call": "select catalog.ingest('manual', 'kind', 'gcp_bucket', null, '{}',\n  '{\"editors\": [\"team:search\"]}',\n  p_actor_type => 'system', p_actor => 'git',\n  p_reason => 'search runs the asset pipeline');",
+          "cards": [
+            { "type": "rows", "title": "authz.access_grant", "note": "read from the new link",
+              "cols": ["relation", "object_ref", "principal_ref"],
+              "rows": [{ "s": "new", "v": ["editor", "kind:gcp_bucket", "team:search"] }] },
+            { "type": "rows", "title": "authz.user_kind_grant", "note": "rebuilt",
+              "cols": ["user_ref", "kind_id", "relation"],
+              "rows": [{ "s": "new", "v": ["user:carol", "gcp_bucket", "editor"] }, { "s": "new", "v": ["user:dave", "gcp_bucket", "editor"] }] },
+            { "type": "rows", "title": "catalog.change_log", "note": "appended",
+              "cols": ["resource_ref", "version", "diff", "reason"],
+              "rows": [{ "s": "new", "v": ["kind:gcp_bucket", "3", "{\"links\": {\"editors\": {\"added\": [\"team:search\"]}}}", "search runs the asset pipeline"] }] }
+          ]
+        },
+        {
+          "title": "Carol asks again, and OpenFGA agrees",
+          "on": ["viewer", "service", "api", "ukg"], "edges": ["e2", "e5"],
+          "body": "<p>Now <code>gcp_bucket</code> is one of Carol's readable and privileged kinds, so she sees the bucket in full and can edit it. She cannot transfer it: moving ownership stays admin-only.</p><p>OpenFGA gets the same fact as a tuple. Every night the consistency check evaluates the model over these tuples for every user and compares the result with <code>api.resource</code>.</p>",
+          "cards": [
+            { "type": "decision", "title": "api.resource for user:carol", "note": "after the grant",
+              "cols": ["check", "value", "result"],
+              "rows": [
+                { "v": ["owners && teams", "{team:payments} && {team:search}", "no"] },
+                { "v": ["kind gcp_bucket readable?", "editor via team:search", "yes"] },
+                { "v": ["row visible, full properties", "", "yes"] },
+                { "v": ["can_edit / can_transfer", "", "yes / no"] }
+              ] },
+            { "type": "rows", "title": "authz.fga_tuples", "note": "kind:gcp_bucket",
+              "cols": ["object", "relation", "subject"],
+              "rows": [{ "s": "new", "v": ["kind:gcp_bucket", "editor", "team:search#member"] }, { "s": "", "v": ["kind:gcp_bucket", "platform", "platform:default"] }] }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "propagate",
+      "title": "Ownership moves, access follows",
+      "summary": "One privileged write; every dependent is updated in the same transaction.",
+      "nodes": [
+        { "id": "frank", "type": "external", "label": "user:frank", "sub": "platform admin", "x": 20, "y": 60 },
+        { "id": "update", "type": "fn", "ref": "api.update", "label": "api.update", "sub": "checks permissions", "x": 230, "y": 60 },
+        { "id": "ingest", "type": "fn", "ref": "catalog.ingest", "label": "ingest", "sub": "as source manual", "x": 230, "y": 170 },
+        { "id": "link", "type": "table", "ref": "catalog.link", "label": "link", "sub": "owner assertions", "x": 470, "y": 30 },
+        { "id": "recompute", "type": "fn", "ref": "catalog.recompute_owners", "label": "recompute_owners", "sub": "walks backwards", "x": 470, "y": 150 },
+        { "id": "resource", "type": "table", "ref": "catalog.resource", "label": "resource", "sub": "6 rows change owner", "x": 710, "y": 90 },
+        { "id": "change_log", "type": "table", "ref": "catalog.change_log", "label": "change_log", "sub": "7 rows", "x": 710, "y": 220 },
+        { "id": "api", "type": "view", "ref": "api.resource", "label": "api.resource", "sub": "who can see", "x": 940, "y": 60 },
+        { "id": "fga", "type": "view", "ref": "authz.fga_tuples", "label": "fga_tuples", "sub": "owner tuples", "x": 940, "y": 220 }
+      ],
+      "edges": [
+        { "id": "e1", "from": "frank", "to": "update", "label": "transfer" },
+        { "id": "e2", "from": "update", "to": "ingest", "label": "can_transfer ✓" },
+        { "id": "e3", "from": "ingest", "to": "link", "label": "manual override" },
+        { "id": "e4", "from": "link", "to": "recompute", "label": "owner changed" },
+        { "id": "e5", "from": "recompute", "to": "resource", "label": "inherits, backwards" },
+        { "id": "e6", "from": "recompute", "to": "change_log", "label": "op = owners" },
+        { "id": "e7", "from": "resource", "to": "api", "label": "visibility" },
+        { "id": "e8", "from": "change_log", "to": "fga", "label": "openfga-sync" }
+      ],
+      "steps": [
+        {
+          "title": "A privileged write",
+          "on": ["frank", "update", "ingest"], "edges": ["e1", "e2"],
+          "body": "<p>Checkout moves to the Platform team. Frank calls <code>api.update</code>. It checks <code>can_edit</code>, and because <code>owner</code> is the kind's <b>grants</b> link, also <code>can_transfer</code>, which only admins hold. Alice, an owner, could edit checkout's properties but not this.</p>",
+          "call": "set local catalog.viewer = 'user:frank';\nselect ref, effective_owners from api.update(\n  'component:checkout-service',\n  p_links  => '{\"owner\": \"team:platform\"}',\n  p_reason => 'CHG-1201');",
+          "cards": [
+            { "type": "decision", "title": "api.update checks", "note": "",
+              "cols": ["check", "value", "result"],
+              "rows": [
+                { "v": ["live viewer", "user:frank", "yes"] },
+                { "v": ["can_edit", "platform admin", "yes"] },
+                { "v": ["touches grants/privileged link?", "owner", "needs can_transfer"] },
+                { "v": ["can_transfer", "platform admin", "yes"] }
+              ] }
+          ]
+        },
+        {
+          "title": "The override wins; GitHub's value is kept",
+          "on": ["ingest", "link"], "edges": ["e3"],
+          "body": "<p>The write goes through <code>ingest</code> as source <code>manual</code>, with Frank as actor. GitHub's catalog file still says Payments, and that assertion is kept, but <code>owner</code> is single-valued and a <code>manual</code> override wins, so <code>applied</code> moves to Frank's row.</p><p>Remove the override later and GitHub's value applies again, with no extra bookkeeping.</p>",
+          "cards": [
+            { "type": "rows", "title": "catalog.link", "note": "component:checkout-service · owner",
+              "cols": ["to_ref", "source_id", "applied"],
+              "rows": [
+                { "s": "", "v": ["team:payments", "github", "f"], "hl": [2] },
+                { "s": "new", "v": ["team:platform", "manual", "t"], "hl": [2] }
+              ] }
+          ]
+        },
+        {
+          "title": "Everything that inherits is recomputed",
+          "on": ["link", "recompute", "resource", "change_log"], "edges": ["e4", "e5", "e6"],
+          "body": "<p>An ownership link changed, so <code>recompute_owners</code> walks <b>backwards</b> over <code>inherits</code> links from checkout and re-resolves every dependent: the repo, the workload, the queue, the database and the bucket.</p><p>All of it happens inside Frank's transaction, so there is no moment when the old team can still see a resource the new team can't.</p>",
+          "cards": [
+            { "type": "rows", "title": "catalog.change_log", "note": "reason = CHG-1201",
+              "cols": ["resource_ref", "version", "op", "diff"],
+              "rows": [
+                { "s": "new", "v": ["component:checkout-service", "6", "update", "links.owner added team:platform"] },
+                { "s": "new", "v": ["component:checkout-service", "7", "owners", "team:payments → team:platform"] },
+                { "s": "new", "v": ["repository:github/acme/checkout-service", "3", "owners", "team:payments → team:platform"] },
+                { "s": "new", "v": ["k8s_workload:prod-eu/checkout/checkout-web", "3", "owners", "team:payments → team:platform"] },
+                { "s": "new", "v": ["aws_sqs_queue:prod-4711/checkout-events", "3", "owners", "team:payments → team:platform"] },
+                { "s": "new", "v": ["aws_rds_instance:prod-4711/checkout-db", "3", "owners", "team:payments → team:platform"] },
+                { "s": "new", "v": ["gcp_bucket:acme-prod/checkout-assets", "3", "owners", "team:payments → team:platform"] }
+              ] }
+          ]
+        },
+        {
+          "title": "Access has already followed",
+          "on": ["resource", "api", "change_log", "fga"], "edges": ["e7", "e8"],
+          "body": "<p>Nobody touched a permission. Because <code>api.resource</code> compares <code>effective_owners</code> with the viewer's teams, the bucket is now invisible to Alice and fully visible to the Platform team. OpenFGA catches up from the change log: one owner tuple out, one in, per resource.</p>",
+          "cards": [
+            { "type": "decision", "title": "gcp_bucket:acme-prod/checkout-assets", "note": "who sees it now",
+              "cols": ["viewer", "before", "after"],
+              "rows": [
+                { "v": ["user:alice (payments)", "yes", "no"] },
+                { "v": ["user:frank (platform, admin)", "yes", "yes"] }
+              ] },
+            { "type": "rows", "title": "authz.fga_tuples", "note": "for the bucket",
+              "cols": ["object", "relation", "subject"],
+              "rows": [
+                { "s": "gone", "v": ["resource:gcp_bucket/acme-prod/checkout-assets", "owner", "team:payments"] },
+                { "s": "new", "v": ["resource:gcp_bucket/acme-prod/checkout-assets", "owner", "team:platform"] }
+              ] }
+          ]
+        }
+      ]
+    }
+  ]
+}
+</script>
+
+<script>
+const D = JSON.parse(document.getElementById("flow-data").textContent);
+const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const TYPE = {
+  config:   { stroke: "var(--o-config)",    tag: "git" },
+  external: { stroke: "var(--o-external)",  tag: "outside" },
+  fn:       { stroke: "var(--o-generated)", tag: "function" },
+  table:    { stroke: "var(--line)",        tag: "table" },
+  derived:  { stroke: "var(--o-derived)",   tag: "derived" },
+  view:     { stroke: "var(--o-computed)",  tag: "view" },
+};
+const NW = 170, NH = 44;
+const SCHEMA_PAGE = "index.html";
+let si = 0, st = 0;
+
+function readHash() {
+  const m = location.hash.match(/^#([a-z]+)(?:-(\d+))?$/);
+  if (!m) return;
+  const i = D.scenarios.findIndex((s) => s.id === m[1]);
+  if (i >= 0) { si = i; st = Math.min(Math.max(0, (+m[2] || 1) - 1), D.scenarios[i].steps.length - 1); }
+}
+
+function edgePath(a, b) {
+  const ax = a.x + NW, ay = a.y + NH / 2, bx = b.x, by = b.y + NH / 2;
+  if (bx > ax + 10) {
+    const dx = (bx - ax) / 2;
+    return { d: `M${ax} ${ay} C${ax + dx} ${ay} ${bx - dx} ${by} ${bx} ${by}`, lx: (ax + bx) / 2, ly: (ay + by) / 2 - 5 };
+  }
+  if (a.x > b.x + NW) {   // right to left
+    const sx = a.x, ex = b.x + NW, dx = (sx - ex) / 2;
+    return { d: `M${sx} ${ay} C${sx - dx} ${ay} ${ex + dx} ${by} ${ex} ${by}`, lx: (sx + ex) / 2, ly: (ay + by) / 2 - 5 };
+  }
+  // same column: vertical
+  const down = b.y > a.y;
+  const x = a.x + NW / 2, y1 = down ? a.y + NH : a.y, y2 = down ? b.y : b.y + NH;
+  return { d: `M${x} ${y1} C${x} ${(y1 + y2) / 2} ${x} ${(y1 + y2) / 2} ${x} ${y2}`, lx: x + 8, ly: (y1 + y2) / 2, anchor: "start" };
+}
+
+function renderFlow() {
+  const sc = D.scenarios[si], step = sc.steps[st];
+  const N = Object.fromEntries(sc.nodes.map((n) => [n.id, n]));
+  const on = new Set(step.on), eon = new Set(step.edges);
+  const seen = new Set(sc.steps.slice(0, st).flatMap((s) => s.edges));
+  const W = Math.max(...sc.nodes.map((n) => n.x)) + NW + 20, H = Math.max(...sc.nodes.map((n) => n.y)) + NH + 16;
+  let svg = `<defs><marker id="ah" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0.5 1 L7 4 L0.5 7 z" fill="var(--accent)"/></marker>
+    <marker id="ag" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="5" markerHeight="5" orient="auto"><path d="M0.5 1 L7 4 L0.5 7 z" fill="var(--ink-3)"/></marker></defs>`;
+  const labels = [];
+  for (const e of sc.edges) {
+    const p = edgePath(N[e.from], N[e.to]);
+    const active = eon.has(e.id);
+    svg += `<path class="fedge ${active ? "on" : seen.has(e.id) ? "done" : ""}" d="${p.d}" marker-end="url(#${active ? "ah" : "ag"})"/>`;
+    if (active && e.label) labels.push(`<text class="felab" x="${p.lx}" y="${p.ly}" text-anchor="${p.anchor || "middle"}">${esc(e.label)}</text>`);
+  }
+  for (const n of sc.nodes) {
+    const t = TYPE[n.type], isOn = on.has(n.id);
+    const link = n.ref ? `${SCHEMA_PAGE}` : null;
+    svg += `<g class="fnode ${n.type === "view" ? "view" : ""} ${isOn ? "on" : "dim"}">
+      <rect class="box" x="${n.x}" y="${n.y}" width="${NW}" height="${NH}" rx="${n.type === "config" || n.type === "external" ? 14 : 3}" stroke="${t.stroke}"/>
+      <text class="lb" x="${n.x + 10}" y="${n.y + 19}">${n.type === "fn" ? "ƒ " : ""}${esc(n.label)}</text>
+      <text class="sb" x="${n.x + 10}" y="${n.y + 34}">${esc(n.sub || "")}</text>
+      ${n.ref ? `<title>${esc(n.ref)} (see the Schema tab)</title>` : ""}</g>`;
+  }
+  svg += labels.join("");
+  const el = document.getElementById("flow");
+  el.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  el.innerHTML = svg;
+}
+
+// "yes", "no" and "yes / no" become badges; anything else is plain text.
+function verdict(v) {
+  if (!/^(yes|no)( \/ (yes|no))?$/.test(v)) return esc(v);
+  return v.split(" / ").map((x) => `<span class="verdict ${x}">${x}</span>`).join(" / ");
+}
+function cell(v, i, hl) { return `<td class="${hl && hl.includes(i) ? "hl" : ""}">${esc(v)}</td>`; }
+function renderCards() {
+  const step = D.scenarios[si].steps[st];
+  document.getElementById("cards").innerHTML = step.cards.map((c) => {
+    let body;
+    if (c.type === "code") body = `<pre>${esc(c.code)}</pre>`;
+    else if (c.type === "decision") body = `<table><thead><tr>${c.cols.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${c.rows.map((r) =>
+      `<tr>${r.v.map((v) => `<td>${verdict(v)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+    else body = `<table><thead><tr>${c.cols.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${c.rows.map((r) =>
+      `<tr class="${r.s || ""}">${r.v.map((v, i) => cell(v, i, r.hl)).join("")}</tr>`).join("")}</tbody></table>`;
+    return `<div class="card"><div class="hd"><span class="nm">${esc(c.title)}</span><span class="nt">${esc(c.note || "")}</span></div><div class="bd">${body}</div></div>`;
+  }).join("");
+}
+
+function renderStep() {
+  const sc = D.scenarios[si], step = sc.steps[st];
+  document.getElementById("scen-eyebrow").textContent = `Scenario ${si + 1} of ${D.scenarios.length}`;
+  document.getElementById("scen-title").textContent = sc.title;
+  document.getElementById("snum").textContent = `${sc.title} · step ${st + 1} of ${sc.steps.length}`;
+  document.getElementById("stitle").textContent = step.title;
+  const refs = [...new Set(step.on.map((id) => sc.nodes.find((n) => n.id === id)).filter((n) => n.ref).map((n) => n.ref))];
+  document.getElementById("sbody").innerHTML = step.body
+    + (step.call ? `<h4>The call</h4><pre class="call">${esc(step.call)}</pre>` : "")
+    + (refs.length ? `<h4>In the schema</h4><p class="schema-links">${refs.map((r) => `<a href="${SCHEMA_PAGE}">${esc(r)}</a>`).join("")}</p>` : "");
+  document.getElementById("pos").textContent = `${st + 1} / ${sc.steps.length}`;
+  const last = st === sc.steps.length - 1 && si === D.scenarios.length - 1;
+  document.getElementById("prev").disabled = st === 0 && si === 0;
+  document.getElementById("next").disabled = last;
+  document.getElementById("next").textContent = st === sc.steps.length - 1 && !last ? "Next scenario" : "Next";
+}
+
+function renderRail() {
+  document.getElementById("scen").innerHTML = D.scenarios.map((s, i) =>
+    `<li><button data-s="${i}" aria-current="${i === si}"><span class="n">${i + 1}</span><span class="t">${esc(s.title)}<span class="d">${esc(s.summary)}</span></span></button></li>`).join("");
+  document.getElementById("steps").innerHTML = D.scenarios[si].steps.map((s, i) =>
+    `<li><button data-t="${i}" aria-current="${i === st}"><span class="n">${i + 1}</span>${esc(s.title)}</button></li>`).join("");
+  document.querySelectorAll("#scen [data-s]").forEach((b) => b.addEventListener("click", () => go(+b.dataset.s, 0)));
+  document.querySelectorAll("#steps [data-t]").forEach((b) => b.addEventListener("click", () => go(si, +b.dataset.t)));
+}
+
+function go(s, t) {
+  si = s; st = t;
+  try { history.replaceState(null, "", `#${D.scenarios[si].id}-${st + 1}`); } catch (e) { /* file:// or sandboxed */ }
+  render();
+}
+function render() { renderRail(); renderFlow(); renderCards(); renderStep(); }
+
+document.getElementById("prev").addEventListener("click", () => {
+  if (st > 0) go(si, st - 1); else if (si > 0) go(si - 1, D.scenarios[si - 1].steps.length - 1);
+});
+document.getElementById("next").addEventListener("click", () => {
+  if (st < D.scenarios[si].steps.length - 1) go(si, st + 1); else if (si < D.scenarios.length - 1) go(si + 1, 0);
+});
+document.addEventListener("keydown", (e) => {
+  if (e.target.closest("button, a, input")) return;
+  if (e.key === "ArrowRight") document.getElementById("next").click();
+  if (e.key === "ArrowLeft") document.getElementById("prev").click();
+});
+readHash();
+render();
+</script>
+</html>
