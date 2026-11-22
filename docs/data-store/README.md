@@ -45,7 +45,7 @@ and `./demo.sh test` fails while it is out of date.
  └─────────────────────────────────────────────────────────────────────────┘
           │ resolver + membership projection (same transaction)
           ▼
- ┌─ authz ─────────────────────┐     ┌─ api (catalog_api reads only this) ─┐
+ ┌─ authz ─────────────────────┐     ┌─ api (the API role reads only this) ┐
  │ user_team  user_role        │────►│ resource  link  change  kind        │
  │ access_grant (from links)   │     │ get  search  who_owns  context      │
  │ fga_tuples (→ OpenFGA sync) │     │ changes_since  update               │

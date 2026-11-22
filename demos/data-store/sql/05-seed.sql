@@ -8,7 +8,6 @@
 -- real connectors would deliver it.
 -- =============================================================================
 
-set role catalog_owner;
 
 -- -----------------------------------------------------------------------------
 -- Bootstrap: the `manual` source has to exist before the first kind can be
@@ -268,4 +267,3 @@ select id, 'production-readiness', 'gold',
        '{"has-owner": {"pass": true}, "has-oncall": {"pass": true}, "no-critical-vulns": {"pass": true}}'
   from catalog.resource where ref = 'component:checkout-service';
 
-reset role;

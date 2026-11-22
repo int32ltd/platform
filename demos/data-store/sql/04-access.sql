@@ -1,10 +1,11 @@
 -- =============================================================================
 -- 04-access.sql — the read path and its permission rule.
 --
--- The catalog service connects as catalog_api and sets, per request,
+-- The catalog service acts as the API role (:api_role, <owner>_api) and sets,
+-- per request,
 --   set local catalog.viewer = 'user:alice';
--- catalog_api has no privilege on catalog.* or authz.*. Everything it reads
--- goes through api.* views owned by catalog_owner, and every one of them is
+-- The API role has no privilege on catalog.* or authz.*. Everything it reads
+-- goes through api.* views owned by the database owner, and every one of them is
 -- built on api.resource, so the visibility rule exists in exactly one place.
 --
 -- Changing the schema? Update demos/data-store/index.html (the schema page)
@@ -12,7 +13,6 @@
 -- while the page and the database disagree.
 -- =============================================================================
 
-set role catalog_owner;
 
 -- -----------------------------------------------------------------------------
 -- Who is asking, and what that gives them. Each is evaluated once per query
@@ -325,7 +325,7 @@ create view authz.fga_tuples as
          ag.principal_ref || case when ag.principal_kind = 'user' then '' else '#member' end
     from authz.access_grant ag;
 
--- Diagnostic for platform admins (not granted to catalog_api): what each live
+-- Diagnostic for platform admins (not granted to the API role): what each live
 -- user may do with one resource, evaluated by the same functions the API uses.
 create function authz.access_matrix(p_ref text)
 returns table (user_ref text, can_view boolean, sees_sensitive boolean, can_edit boolean, can_transfer boolean)
@@ -367,25 +367,24 @@ alter function catalog.ack_changes(text, xid8, bigint)  security definer set sea
 revoke all on schema catalog, authz, api from public;
 revoke execute on all functions in schema catalog, authz, api from public;
 
-grant usage on schema api to catalog_api;
-grant select on all tables in schema api to catalog_api;
-grant execute on all functions in schema api to catalog_api;
-grant usage on schema authz to catalog_api;   -- views call these; definer rights do the reading
+grant usage on schema api to :"api_role";
+grant select on all tables in schema api to :"api_role";
+grant execute on all functions in schema api to :"api_role";
+grant usage on schema authz to :"api_role";   -- views call these; definer rights do the reading
 grant execute on function authz.viewer(), authz.viewer_teams(), authz.viewer_is(text),
                           authz.viewer_readable_kinds(), authz.viewer_privileged_kinds(),
                           authz.viewer_can_edit(text, text[]), authz.viewer_can_transfer(text)
-  to catalog_api;
+  to :"api_role";
 
-grant usage on schema catalog to catalog_ingest;
+grant usage on schema catalog to :"ingest_role";
 grant execute on function catalog.ingest(text, text, text, text, jsonb, jsonb, text, bigint, catalog.actor_type, text, text),
                           catalog.retract(text, text, catalog.actor_type, text, text),
                           catalog.start_run(text, text), catalog.finish_run(bigint)
-  to catalog_ingest;
+  to :"ingest_role";
 
-grant usage on schema catalog to catalog_consumer;
-grant execute on function catalog.poll_changes(text, int), catalog.ack_changes(text, xid8, bigint) to catalog_consumer;
+grant usage on schema catalog to :"consumer_role";
+grant execute on function catalog.poll_changes(text, int), catalog.ack_changes(text, xid8, bigint) to :"consumer_role";
 
-grant usage on schema catalog, authz to catalog_auditor;
-grant select on all tables in schema catalog, authz to catalog_auditor;
+grant usage on schema catalog, authz to :"auditor_role";
+grant select on all tables in schema catalog, authz to :"auditor_role";
 
-reset role;

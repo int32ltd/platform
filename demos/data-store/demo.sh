@@ -1,10 +1,9 @@
 #!/usr/bin/env sh
-# Run the catalog data-store demo in its own namespace on the current
-# Kubernetes cluster (a local kind cluster is enough).
+# Run the catalog data-store demo on the current Kubernetes cluster.
 #
-#   ./demo.sh up            deploy Postgres 18 and OpenFGA (k8s.yaml), (re)create
-#                           the `catalog` database, load sql/*.sql, and load
-#                           OpenFGA from authz.fga_tuples
+#   ./demo.sh up            provision the database (see Modes), deploy the psql
+#                           client and OpenFGA (k8s.yaml), recreate the schema
+#                           from sql/*.sql, and load OpenFGA from authz.fga_tuples
 #   ./demo.sh walkthrough   run the guided walkthrough (walkthrough.sql)
 #   ./demo.sh test          run the invariant checks (test.sql, rolled back),
 #                           then check-page, then drift
@@ -17,20 +16,84 @@
 #                           the database has, and that flows.html only names
 #                           objects that exist, and that the model in the docs
 #                           is fga/model.fga
-#   ./demo.sh psql          interactive psql in the catalog database
-#   ./demo.sh down          delete the catalog-data-store namespace
+#   ./demo.sh psql          interactive psql in the demo database, as its owner
+#   ./demo.sh down          remove the demo workloads (localenv: the database
+#                           stays; standalone: the namespace is deleted)
 #
-# Needs kubectl pointing at the cluster you want to use. Nothing outside the
-# catalog-data-store namespace is created or changed.
+# Modes (CATALOG_PG):
+#   localenv (default)  the local kind environment: `localenv apps apply` on
+#                       .localenv.yaml gives the database, its extra roles and
+#                       Secret catalog-data-store-db on the shared PostgreSQL
+#   standalone          clusters without localenv (CI): deploys standalone.yaml
+#                       and creates the same database, roles and Secret itself
+#
+# Needs kubectl and python3. Nothing outside the demo namespace is changed,
+# apart from what localenv provisions for it.
 set -eu
 cd "$(dirname "$0")"
-NS=catalog-data-store
-POD=postgres-0
-DB=catalog
+MODE=${CATALOG_PG:-localenv}
+APP=catalog-data-store
+OWNER=catalog_data_store              # localenv: app name with dashes as underscores
+ROLES="api ingest consumer auditor"   # extra roles <owner>_<role>, as in .localenv.yaml
+case "$MODE" in
+  localenv)   NS=$APP ;;              # localenv puts an app in a namespace of its name
+  standalone) NS=${CATALOG_NAMESPACE:-$APP} ;;
+  *)          echo "CATALOG_PG must be localenv or standalone" >&2; exit 1 ;;
+esac
+export CATALOG_NAMESPACE=$NS          # read by fga/drift.py
 
-pod_psql() {   # pod_psql <database> [psql args...]   (SQL on stdin)
-  d=$1; shift
-  kubectl -n "$NS" exec -i "$POD" -- env PGOPTIONS="-c client_min_messages=warning" psql -X -q -U postgres -d "$d" -v ON_ERROR_STOP=1 "$@"
+pod_psql() {   # SQL on stdin, as the database owner, via the psql client pod
+  kubectl -n "$NS" exec -i deploy/psql -- env PGOPTIONS="-c client_min_messages=warning" \
+    psql -X -q -v ON_ERROR_STOP=1 "$@"
+}
+
+run_sql() {    # run_sql <file>: the role-name preamble, then the file
+  { cat sql/_roles.psql; echo; cat "$1"; } | pod_psql
+}
+
+# Standalone mode: create what localenv would (owner, database, marked NOLOGIN
+# roles granted WITH INHERIT FALSE, SET TRUE, ADMIN FALSE, and the Secret).
+# Passwords are generated into Secrets through 0600 files; they are never
+# printed and never on a command line. The owner password is regenerated on
+# every run, so this never needs to read a Secret back.
+standalone_db() {
+  kubectl create namespace "$NS" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+  tmp=$(mktemp -d); chmod 700 "$tmp"
+  if ! kubectl -n "$NS" get secret postgres-superuser >/dev/null 2>&1; then
+    (umask 077; openssl rand -hex 24 | tr -d '\n' > "$tmp/password")
+    kubectl -n "$NS" create secret generic postgres-superuser --from-file=password="$tmp/password" >/dev/null
+  fi
+  kubectl -n "$NS" apply -f standalone.yaml >/dev/null
+  kubectl -n "$NS" rollout status statefulset/postgres --timeout=180s >/dev/null
+  kubectl -n "$NS" wait --for=condition=Ready pod/postgres-0 --timeout=180s >/dev/null
+  roles_csv=""
+  for r in $ROLES; do roles_csv="${roles_csv:+$roles_csv,}${OWNER}_$r"; done
+  (umask 077
+   openssl rand -hex 24 | tr -d '\n' > "$tmp/password"
+   printf '%s' postgres > "$tmp/host"; printf '%s' 5432 > "$tmp/port"
+   printf '%s' "$OWNER" > "$tmp/database"; printf '%s' "$OWNER" > "$tmp/username"
+   printf '%s' "$roles_csv" > "$tmp/roles"
+   printf 'postgresql://%s:%s@postgres:5432/%s?sslmode=disable' "$OWNER" "$(cat "$tmp/password")" "$OWNER" > "$tmp/uri")
+  kubectl -n "$NS" create secret generic "$APP-db" --dry-run=client -o yaml \
+    --from-file="$tmp/host" --from-file="$tmp/port" --from-file="$tmp/database" --from-file="$tmp/username" \
+    --from-file="$tmp/password" --from-file="$tmp/uri" --from-file="$tmp/roles" | kubectl apply -f - >/dev/null
+  { printf '\\set pass %s\n' "$(cat "$tmp/password")"; cat <<SQL
+\\set owner $OWNER
+\\set roles $roles_csv
+select format('create role %I login', :'owner') where not exists (select from pg_roles where rolname = :'owner') \\gexec
+select format('alter role %I with login password %L', :'owner', :'pass') \\gexec
+select format('create database %I owner %I', :'owner', :'owner') where not exists (select from pg_database where datname = :'owner') \\gexec
+select format('revoke all on database %I from public', :'owner') \\gexec
+select format('create role %I nologin', r) from unnest(string_to_array(:'roles', ',')) r
+ where not exists (select from pg_roles where rolname = r) \\gexec
+select format('comment on role %I is %L', r, format('localenv: database role %s of app $APP', substr(r, length(:'owner') + 2)))
+  from unnest(string_to_array(:'roles', ',')) r \\gexec
+select format('grant %I to %I with inherit false, set true, admin false', r, :'owner')
+  from unnest(string_to_array(:'roles', ',')) r \\gexec
+SQL
+  } | kubectl -n "$NS" exec -i postgres-0 -- env PGOPTIONS="-c client_min_messages=warning" \
+        psql -X -q -v ON_ERROR_STOP=1 -U postgres -d postgres
+  rm -rf "$tmp"
 }
 
 # The live schema, one line per object, in the same shape check-page extracts
@@ -142,7 +205,7 @@ check_page() {
   command -v python3 >/dev/null || { echo 'check-page needs python3'; exit 1; }
   python3 -I -c "$MODEL_PY" "$MODEL_DOC" fga/model.fga
   tmp=$(mktemp -d)
-  pod_psql "$DB" -At -c "$LIVE_SQL" | LC_ALL=C sort > "$tmp/live"
+  pod_psql -At -c "$LIVE_SQL" | LC_ALL=C sort > "$tmp/live"
   python3 -I -c "$PAGE_PY" < index.html > "$tmp/page"
   python3 -I -c "$FLOWS_PY" index.html flows.html || { rm -rf "$tmp"; exit 1; }
   if diff -u --label database --label index.html "$tmp/live" "$tmp/page" > "$tmp/diff"; then
@@ -158,26 +221,44 @@ check_page() {
 
 case "${1:-}" in
   up)
-    echo "cluster: $(kubectl config current-context)"
-    kubectl apply -f k8s.yaml >/dev/null
-    kubectl -n "$NS" rollout status statefulset/postgres --timeout=180s >/dev/null
-    kubectl -n "$NS" wait --for=condition=Ready "pod/$POD" --timeout=180s >/dev/null
-    pod_psql postgres -c "drop database if exists $DB with (force)"
-    pod_psql postgres -c "drop role if exists catalog_api, catalog_ingest, catalog_consumer, catalog_auditor, catalog_owner"
-    pod_psql postgres -c "create database $DB"
-    for f in sql/*.sql; do
+    echo "cluster: $(kubectl config current-context), mode: $MODE, namespace: $NS"
+    if [ "$MODE" = localenv ]; then
+      command -v localenv >/dev/null || {
+        echo "localenv not found: install the local environment, or run with CATALOG_PG=standalone" >&2; exit 1; }
+      localenv apps apply "$PWD" >/dev/null   # namespace, database, extra roles, Secret (idempotent)
+    else
+      standalone_db
+    fi
+    kubectl -n "$NS" apply -f k8s.yaml >/dev/null
+    if [ "$MODE" = standalone ]; then
+      kubectl -n "$NS" set env deployment/psql PGSSLMODE=disable >/dev/null   # in-cluster, no TLS
+      kubectl -n "$NS" rollout restart deployment/psql >/dev/null             # pick up the new password
+    fi
+    kubectl -n "$NS" rollout status deployment/psql --timeout=180s >/dev/null
+    # The owner can't drop its own database (it can only connect to that one),
+    # so start over by dropping the demo's schemas.
+    echo "drop schema if exists api, authz, catalog cascade;" | pod_psql
+    for f in sql/[0-9]*.sql; do
       printf 'loading %s\n' "$f"
-      pod_psql "$DB" < "$f" >/dev/null
+      run_sql "$f" >/dev/null
     done
     kubectl -n "$NS" rollout status deployment/openfga --timeout=180s >/dev/null
     python3 -I fga/drift.py sync | tail -1
-    echo "ready: $NS/$POD (database $DB) and $NS/openfga"
+    echo "ready: database $OWNER (via $NS/psql) and $NS/openfga"
     ;;
-  walkthrough) pod_psql "$DB" < walkthrough.sql ;;
-  test)        pod_psql "$DB" < test.sql && check_page && python3 -I fga/drift.py check ;;
+  walkthrough) run_sql walkthrough.sql ;;
+  test)        run_sql test.sql && check_page && python3 -I fga/drift.py check ;;
   drift)       shift; python3 -I fga/drift.py check "$@" ;;
   check-page)  check_page ;;
-  psql)        kubectl -n "$NS" exec -it "$POD" -- psql -U postgres -d "$DB" ;;
-  down)        kubectl delete namespace "$NS" ;;
-  *)           sed -n '2,23p' "$0"; exit 1 ;;
+  psql)        kubectl -n "$NS" exec -it deploy/psql -- psql ;;
+  down)
+    if [ "$MODE" = localenv ]; then
+      kubectl -n "$NS" delete -f k8s.yaml --ignore-not-found
+      echo "database $OWNER and its roles are kept. To remove the namespace, database and roles:"
+      echo "  localenv apps delete $APP    (drops the data)"
+    else
+      kubectl delete namespace "$NS"
+    fi
+    ;;
+  *)           sed -n '2,32p' "$0"; exit 1 ;;
 esac

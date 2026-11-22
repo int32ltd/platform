@@ -43,7 +43,7 @@ in a browser instead. It's the same simulation with every file editable.
 For the service catalog, open
 [`demos/service-catalog-ownership/index.html`](./demos/service-catalog-ownership/index.html)
 in a browser. For the database behind it, run
-[`demos/data-store/`](./demos/data-store/) (needs a Kubernetes cluster, kind is enough):
+[`demos/data-store/`](./demos/data-store/) (runs on the local kind environment, localenv):
 `./demo.sh up && ./demo.sh walkthrough`.
 
 ## Contributing

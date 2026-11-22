@@ -428,7 +428,7 @@
       "summary": "Who sees the bucket, and why. No ACL anywhere.",
       "nodes": [
         { "id": "viewer", "type": "external", "label": "user request", "sub": "alice / carol / frank", "x": 20, "y": 40 },
-        { "id": "service", "type": "external", "label": "catalog service", "sub": "role catalog_api", "x": 20, "y": 150 },
+        { "id": "service", "type": "external", "label": "catalog service", "sub": "API role", "x": 20, "y": 150 },
         { "id": "api", "type": "view", "ref": "api.resource", "label": "api.resource", "sub": "the visibility rule", "x": 250, "y": 95 },
         { "id": "user_team", "type": "derived", "ref": "authz.user_team", "label": "user_team", "sub": "viewer's teams", "x": 490, "y": 10 },
         { "id": "user_role", "type": "derived", "ref": "authz.user_role", "label": "user_role", "sub": "platform admin?", "x": 490, "y": 75 },
@@ -473,7 +473,7 @@
         {
           "title": "Alice asks: owner member, full view",
           "on": ["viewer", "service", "api", "user_team", "resource"], "edges": ["e1", "e2", "e3", "e6"],
-          "body": "<p>The catalog service authenticates Alice and runs her query as <code>catalog_api</code>, which can read nothing but the <code>api</code> views. It passes her identity as a session setting.</p><p><code>api.resource</code> applies one rule: show the row if its owners overlap the viewer's teams, or if the kind is readable to the viewer. <code>{team:payments} && {team:payments}</code> is true, so Alice sees the bucket, sensitive properties included.</p>",
+          "body": "<p>The catalog service authenticates Alice and runs her query as the API role (<code>catalog_data_store_api</code>), which can read nothing but the <code>api</code> views. It passes her identity as a session setting.</p><p><code>api.resource</code> applies one rule: show the row if its owners overlap the viewer's teams, or if the kind is readable to the viewer. <code>{team:payments} && {team:payments}</code> is true, so Alice sees the bucket, sensitive properties included.</p>",
           "call": "set local catalog.viewer = 'user:alice';\nselect ref, properties, redacted\n  from api.resource where kind = 'gcp_bucket';",
           "cards": [
             { "type": "decision", "title": "api.resource for user:alice", "note": "",

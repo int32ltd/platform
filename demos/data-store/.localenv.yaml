@@ -1,0 +1,10 @@
+# What the data-store demo needs from the local kind environment (localenv).
+# `localenv apps apply` (or the app_apply MCP tool) creates the namespace,
+# a database and owner role `catalog_data_store` on the shared PostgreSQL,
+# and Secret `catalog-data-store-db` with its credentials.
+name: catalog-data-store
+database: true
+# The schema separates privileges (sql/00-roles.sql). The owner role can't
+# create roles on the shared cluster, so localenv creates these NOLOGIN roles,
+# catalog_data_store_<role>, and lets the owner SET ROLE to them.
+databaseRoles: [api, ingest, consumer, auditor]

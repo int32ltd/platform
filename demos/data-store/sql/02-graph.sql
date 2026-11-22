@@ -8,7 +8,6 @@
 -- while the page and the database disagree.
 -- =============================================================================
 
-set role catalog_owner;
 
 -- -----------------------------------------------------------------------------
 -- Link validation. Runs on every insert, whatever the write path: the link must
@@ -288,4 +287,3 @@ begin
    where ag.object_kind = 'kind';
 end $$;
 
-reset role;

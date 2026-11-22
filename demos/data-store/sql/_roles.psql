@@ -1,0 +1,20 @@
+-- _roles.psql — role names, prepended by demo.sh to every script it runs.
+--
+-- demo.sh connects as the database owner (on localenv: catalog_data_store).
+-- The other roles are named <owner>_<role>, which is how localenv names the
+-- extra roles listed under databaseRoles in .localenv.yaml:
+--
+--   :owner_role      the connecting owner: owns every object
+--   :api_role        the catalog service's request path: api.* only
+--   :ingest_role     connectors: catalog.ingest / retract / runs
+--   :consumer_role   outbox consumers: poll and ack the change log
+--   :auditor_role    read-only access to the facts
+--
+-- Plain SQL uses them as :"api_role"; DO blocks, where psql variables don't
+-- expand, read current_setting('demo.api_role').
+select current_user               as owner_role,
+       current_user || '_api'      as api_role,
+       current_user || '_ingest'   as ingest_role,
+       current_user || '_consumer' as consumer_role,
+       current_user || '_auditor'  as auditor_role \gset
+set demo.api_role = :'api_role';

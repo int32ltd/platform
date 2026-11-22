@@ -60,10 +60,11 @@ select ref, effective_owners from catalog.resource
 
 \echo
 \echo '════ 4. Permissions are part of the map ═══════════════════════════════════'
-\echo 'The catalog service connects as catalog_api and sets catalog.viewer per'
+\set line 'The catalog service acts as the API role (' :api_role ') and sets catalog.viewer per'
+\echo :line
 \echo 'request. What each person can see is derived from ownership + membership.'
 \echo
-set role catalog_api;
+set role :"api_role";
 
 set catalog.viewer = 'user:alice';
 select 'alice' as viewer, count(*) as visible, count(*) filter (where redacted <> '{}') as redacted from api.resource where kind not in ('kind', 'source');
@@ -94,8 +95,8 @@ select * from authz.access_matrix('component:checkout-service');
 \echo 'over. Changing ownership needs can_transfer, which only platform admins have.'
 \echo
 create temporary table tuples_before as select * from authz.fga_tuples;
-grant select on tuples_before to catalog_api;
-set role catalog_api;
+grant select on tuples_before to :"api_role";
+set role :"api_role";
 
 set catalog.viewer = 'user:carol';
 \set ON_ERROR_STOP off
@@ -127,7 +128,7 @@ order by 1, 2;
 select catalog.ingest('aws-prod-4711', 'aws_sqs_queue', 'prod-4711/legacy-orders-dlq', null,
                       '{"tags": {"platform:component": "checkout-service"}}',
                       '{"component": "component:checkout-service"}') is not null as ingested;
-set role catalog_api;
+set role :"api_role";
 set catalog.viewer = 'user:alice';
 select ref, effective_owners, properties -> 'messagesVisible' as messages
   from api.get('aws_sqs_queue:prod-4711/legacy-orders-dlq');
@@ -138,7 +139,7 @@ reset role;
 \echo 'Dave is removed from eng-search in Entra ID. The next delta sync rewrites the'
 \echo 'group''s members; the flattened membership and Dave''s view follow at once.'
 \echo
-set role catalog_api;
+set role :"api_role";
 set catalog.viewer = 'user:dave';
 select 'before' as dave, count(*) filter (where sensitive_visible) as full_access,
        count(*) filter (where kind like 'k8s%' or kind like 'aws%' or kind = 'repository') as infrastructure
@@ -149,7 +150,7 @@ select catalog.ingest('entra-id', 'identity_group', 'eng-search', null, '{}',
                       '{"members": ["user:carol"]}') is not null as ingested;
 select * from authz.user_team where user_ref = 'user:dave';
 
-set role catalog_api;
+set role :"api_role";
 set catalog.viewer = 'user:dave';
 select 'after' as dave, count(*) filter (where sensitive_visible) as full_access,
        count(*) filter (where kind like 'k8s%' or kind like 'aws%' or kind = 'repository') as infrastructure
@@ -212,7 +213,7 @@ select name, last_tx, last_id,
 \echo 'Users read history through the API, filtered and redacted like everything'
 \echo 'else. Bob (Payments) no longer owns cart-service, so cost changes are hidden:'
 select catalog.ingest('finops', 'component', 'cart-service', null, '{"monthlyCost": 1130}') is not null as ingested;
-set role catalog_api;
+set role :"api_role";
 set catalog.viewer = 'user:bob';
 select version, op, actor, diff from api.change
  where resource_ref = 'component:cart-service' order by version desc limit 3;
@@ -223,7 +224,7 @@ reset role;
 \echo 'api.context returns a bounded neighbourhood. Permission filtering happens'
 \echo 'before the budget, so truncation never reveals what the caller cannot see.'
 \echo
-set role catalog_api;
+set role :"api_role";
 set catalog.viewer = 'user:alice';
 select 'alice' as caller, r ->> 'ref' as ref, r ->> 'depth' as depth, r -> 'redacted' as redacted
   from jsonb_array_elements(api.context(array['component:checkout-service'], 1) -> 'resources') r;
@@ -234,4 +235,5 @@ reset role;
 
 \echo
 \echo 'Done. Explore further with ./demo.sh psql, for example:'
-\echo '  set role catalog_api; set catalog.viewer = ''user:carol''; table api.resource;'
+\set line '  set role ' :api_role '; set catalog.viewer = ''user:carol''; table api.resource;'
+\echo :line

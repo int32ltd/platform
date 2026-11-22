@@ -1,0 +1,53 @@
+# Standalone PostgreSQL for clusters without localenv (CI). Not used on the
+# local environment, where the database lives on the shared cluster.
+#
+# `CATALOG_PG=standalone ./demo.sh up` applies this, then creates what localenv
+# would: owner role + database catalog_data_store, the NOLOGIN roles
+# catalog_data_store_{api,ingest,consumer,auditor} granted to the owner, and
+# Secret catalog-data-store-db with the same keys localenv delivers. The
+# superuser password comes from Secret postgres-superuser, which demo.sh
+# generates; nothing here holds a credential.
+#
+# Data lives in an emptyDir: deleting the pod resets it.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels: { app: postgres }
+  template:
+    metadata:
+      labels: { app: postgres }
+    spec:
+      containers:
+        - name: postgres
+          image: docker.io/postgres:18.2-trixie   # Debian (glibc), pinned minor
+          env:
+            - { name: POSTGRES_USER, value: postgres }
+            - { name: POSTGRES_PASSWORD, valueFrom: { secretKeyRef: { name: postgres-superuser, key: password } } }
+            - { name: POSTGRES_DB, value: postgres }
+          ports:
+            - { name: postgres, containerPort: 5432 }
+          readinessProbe:
+            exec: { command: ["pg_isready", "-U", "postgres", "-d", "postgres"] }
+            periodSeconds: 2
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { memory: 1Gi }
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/postgresql }
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+spec:
+  selector: { app: postgres }
+  ports:
+    - { name: postgres, port: 5432, targetPort: postgres }

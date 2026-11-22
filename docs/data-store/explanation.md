@@ -20,6 +20,7 @@ Contents:
 - [Membership is flattened, but only as a projection](#membership-is-flattened-but-only-as-a-projection)
 - [Visibility lives in one view, not in row-level security](#visibility-lives-in-one-view-not-in-row-level-security)
 - [Two evaluators, one model](#two-evaluators-one-model)
+- [Roles without a superuser](#roles-without-a-superuser)
 - [The viewer is a session setting](#the-viewer-is-a-session-setting)
 - [Writes go through functions](#writes-go-through-functions)
 - [The change log is the outbox](#the-change-log-is-the-outbox)
@@ -240,8 +241,8 @@ used, for three reasons:
    ownership paths must all respect the same rule. With RLS on every table,
    each policy must re-derive visibility of the rows it references.
 
-Instead, the service role `catalog_api` has no privilege on any `catalog`
-table. Everything it can read is an `api.*` view owned by `catalog_owner`,
+Instead, the API role (`<owner>_api`) has no privilege on any `catalog`
+table. Everything it can read is an `api.*` view owned by the database owner,
 and every view is built on `api.resource`, which holds the only copy of the
 predicate:
 
@@ -300,9 +301,23 @@ admits unknown principals to `org`-visible kinds, while the database shows a
 non-user viewer nothing. That is accepted because callers authenticate users
 before asking.
 
+## Roles without a superuser
+
+The schema never needs a superuser. The database owner creates and owns every object, and the
+four extra roles it separates privileges with (`<owner>_api`, `_ingest`, `_consumer`,
+`_auditor`) are provided to it, not created by it: they exist before the schema loads, as
+`NOLOGIN` roles the owner may `SET ROLE` to but doesn't inherit.
+
+That is how a shared PostgreSQL works, and how the demo runs on the local environment: an
+app's role owns its database but has no `CREATEROLE`, and the environment creates the extra
+roles it asks for (`databaseRoles` in `.localenv.yaml`). Naming them after the owner keeps them
+from colliding with other apps' roles, because role names are cluster-wide. In production the
+same roles are granted to the login roles that need them: the catalog service's login gets
+`<owner>_api`, each connector's login gets `<owner>_ingest`.
+
 ## The viewer is a session setting
 
-The catalog service connects as `catalog_api` and, per request, runs
+The catalog service connects with a login that holds the API role and, per request, runs
 `set local catalog.viewer = 'user:alice'`. Every `api` view reads it.
 
 The alternative, a database role per end user, would mean ~100k roles synced
@@ -312,7 +327,7 @@ enforcement point and the only caller of OpenFGA. End users and agents never
 get a database connection. The setting carries the identity the API has
 already authenticated, the same way it carries it to OpenFGA `Check`.
 
-The trust boundary is therefore the `catalog_api` credential, not the setting.
+The trust boundary is therefore the service's credential, not the setting.
 Anything holding that credential can act as any user, exactly as anything
 holding the API's OpenFGA credential can. A viewer that is not a live `user`
 resource (unset, unknown, or offboarded and tombstoned) is nobody, and sees
@@ -427,7 +442,7 @@ Decided here:
 Open, needing a decision:
 
 1. **Source authentication at the database.** Today any role granted
-   `catalog_ingest` may name any source. Binding each connector's login role to
+   the ingest role may name any source. Binding each connector's login role to
    its source (a `db_role` column on `catalog.source`, checked against
    `session_user` in `catalog.ingest`) closes that gap. Recommended before more
    than one team operates connectors.
