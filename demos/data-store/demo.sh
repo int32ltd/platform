@@ -9,7 +9,8 @@
 #                           then check-page
 #   ./demo.sh check-page    check that index.html (the schema page) lists exactly
 #                           the tables, views, columns, types and functions
-#                           the database has
+#                           the database has, and that flows.html only names
+#                           objects that exist
 #   ./demo.sh psql          interactive psql in the catalog database
 #   ./demo.sh down          delete the catalog-data-store namespace
 #
@@ -82,11 +83,45 @@ for e in d["edges"]:
 print("\n".join(sorted(out, key=lambda s: s.encode())))
 '
 
+# flows.html ("How it works") names tables, views and functions in its
+# diagrams. Every one must exist on the schema page, and every edge and step
+# must refer to nodes that exist.
+FLOWS_PY='
+import json, re, sys
+def block(path, id):
+    m = re.search(r"<script type=\"application/json\" id=\"%s\">(.*?)</script>" % id, open(path).read(), re.S)
+    if not m:
+        sys.exit("%s: no %s block" % (path, id))
+    return json.loads(m.group(1))
+schema, flows = block(sys.argv[1], "schema-data"), block(sys.argv[2], "flow-data")
+ids = {t["id"] for t in schema["tables"]} | {f["id"] for f in schema["functions"]}
+types = {"config", "external", "fn", "table", "derived", "view"}
+steps = 0
+for sc in flows["scenarios"]:
+    nodes = {n["id"]: n for n in sc["nodes"]}
+    for n in sc["nodes"]:
+        if n["type"] not in types:
+            sys.exit("flows.html: %s/%s has unknown type %s" % (sc["id"], n["id"], n["type"]))
+        if n["type"] not in ("config", "external") and n.get("ref") not in ids:
+            sys.exit("flows.html: %s/%s refers to %s, which is not on the schema page" % (sc["id"], n["id"], n.get("ref")))
+    edges = {e["id"] for e in sc["edges"]}
+    for e in sc["edges"]:
+        if e["from"] not in nodes or e["to"] not in nodes:
+            sys.exit("flows.html: %s edge %s refers to an unknown node" % (sc["id"], e["id"]))
+    for i, st in enumerate(sc["steps"], 1):
+        steps += 1
+        bad = [x for x in st["on"] if x not in nodes] + [x for x in st["edges"] if x not in edges]
+        if bad:
+            sys.exit("flows.html: %s step %d refers to unknown %s" % (sc["id"], i, ", ".join(bad)))
+print("flows page refers only to real objects (%d scenarios, %d steps)" % (len(flows["scenarios"]), steps))
+'
+
 check_page() {
   command -v python3 >/dev/null || { echo 'check-page needs python3'; exit 1; }
   tmp=$(mktemp -d)
   pod_psql "$DB" -At -c "$LIVE_SQL" | LC_ALL=C sort > "$tmp/live"
   python3 -I -c "$PAGE_PY" < index.html > "$tmp/page"
+  python3 -I -c "$FLOWS_PY" index.html flows.html || { rm -rf "$tmp"; exit 1; }
   if diff -u --label database --label index.html "$tmp/live" "$tmp/page" > "$tmp/diff"; then
     echo "schema page matches the database ($(wc -l < "$tmp/live" | tr -d ' ') objects)"
     rm -rf "$tmp"
