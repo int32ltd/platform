@@ -1,0 +1,8 @@
+# Build context for demos/data-store/Dockerfile (the static demo pages):
+# send only the HTML pages it copies.
+**
+!index.html
+!platform-abstraction/index.html
+!service-catalog-ownership/index.html
+!data-store/index.html
+!data-store/flows.html

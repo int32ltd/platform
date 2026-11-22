@@ -1,0 +1,35 @@
+# The demo pages web server, deployed by `localenv apps deploy` (./demo.sh pages).
+# The image name is a placeholder: localenv pins it to the digest pushed by
+# `localenv apps image` (repository registry.dev.test/catalog-data-store).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pages
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: pages }
+  template:
+    metadata:
+      labels: { app: pages }
+    spec:
+      containers:
+        - name: pages
+          image: registry.dev.test/catalog-data-store
+          ports:
+            - { name: http, containerPort: 80 }
+          readinessProbe:
+            httpGet: { path: /, port: http }
+            periodSeconds: 5
+          resources:
+            requests: { cpu: 10m, memory: 16Mi }
+            limits: { memory: 64Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pages
+spec:
+  selector: { app: pages }
+  ports:
+    - { name: http, port: 80, targetPort: http }

@@ -11,7 +11,8 @@ the source that owns it.
 and its companion **[How it works](./flows.html)** (`flows.html`): four
 worked scenarios (define a kind, create an instance, apply permissions,
 move ownership) showing each call, the functions and tables it touches, and
-the rows it writes.
+the rows it writes. On the local environment, `./demo.sh pages` also serves both
+(with the demos landing page) at https://catalog-data-store.dev.test.
 
 The schema page is a visual guide to every table, view and function: what
 writes each one, where every column's value comes from (an external source,
@@ -37,6 +38,7 @@ Secret. CI uses that mode.
 ./demo.sh test          # invariant checks (rolled back), then check-page
 ./demo.sh check-page    # does index.html match the live schema?
 ./demo.sh drift         # do OpenFGA and the SQL rule agree? (--apply repairs)
+./demo.sh pages         # serve the demo pages at https://catalog-data-store.dev.test
 ./demo.sh psql          # explore by hand
 ./demo.sh down          # remove the workloads (the database stays; `localenv apps delete catalog-data-store` drops it)
 ```
@@ -64,6 +66,7 @@ covers the same steps with commentary.
 | [`fga/model.fga`](./fga/model.fga) | the OpenFGA model: the single copy, embedded verbatim in the service catalog reference |
 | [`fga/drift.py`](./fga/drift.py) | the drift check between OpenFGA and the SQL rule; also the reference full-reconcile sync |
 | [`k8s.yaml`](./k8s.yaml) | the `psql` client pod (owner credentials from Secret `catalog-data-store-db`, verified TLS) and OpenFGA |
+| [`Dockerfile`](./Dockerfile), [`pages.yaml`](./pages.yaml) | the demo pages web server (nginx, Debian): the demos landing page and every demo's HTML, served by `./demo.sh pages`. Build context `demos/`, filtered by [`../.dockerignore`](../.dockerignore) |
 | [`standalone.yaml`](./standalone.yaml) | Postgres for standalone mode (CI); not used on the local environment |
 | [`demo.sh`](./demo.sh) | deploy, load, run and connect, using `kubectl` |
 
