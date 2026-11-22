@@ -129,6 +129,8 @@
   .brand h1 { font-family: var(--cond); font-size: 19px; font-weight: 700; letter-spacing: -.005em; }
   .brand .sub { font-size: 11.5px; color: var(--ink-3); }
   .brand .sub a { color: var(--accent-ink); text-decoration: none; border-bottom: 1px solid var(--accent-soft); }
+  .brand .back { font-family: var(--mono); font-size: 10px; letter-spacing: .06em; color: var(--ink-3); text-decoration: none; margin-bottom: 2px; align-self: flex-start; }
+  .brand .back:hover { color: var(--accent-ink); }
   .top-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
 
   .btn {
@@ -413,6 +415,7 @@
 <div class="app">
   <header class="top">
     <div class="brand">
+      <a class="back" href="../index.html">← All demos</a>
       <h1>Platform Abstraction Flow</h1>
       <div class="sub">One vendor-neutral request through every layer of the <a href="../../docs/platform-abstraction/reference.md">platform abstraction design</a>. Edit any file and the run recomputes.</div>
     </div>
