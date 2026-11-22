@@ -8,6 +8,10 @@
 --   api      the only surface the catalog service's read role can touch
 --
 -- Spec: docs/data-store/reference.md. Rationale: docs/data-store/explanation.md.
+--
+-- Changing the schema? Update demos/data-store/index.html (the schema page)
+-- and docs/data-store/reference.md in the same change. ./demo.sh test fails
+-- while the page and the database disagree.
 -- =============================================================================
 
 set role catalog_owner;

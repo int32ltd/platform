@@ -1,6 +1,24 @@
 # Contributing
 
-Thanks for contributing. Two things to know before you open a pull request.
+Thanks for contributing. Three things to know before you open a pull request.
+
+## Keep the data-store schema page current
+
+[`demos/data-store/index.html`](./demos/data-store/index.html) is the visual
+guide to the catalog's PostgreSQL schema. Any pull request that changes
+[`demos/data-store/sql/`](./demos/data-store/sql/) in a way that adds, removes,
+renames or retypes a table, view, column or function must update, in the same
+pull request:
+
+- the `schema-data` block in `demos/data-store/index.html`: the object itself,
+  plus its purpose, rules, `writtenBy`/`readBy`, edges, and the guided tour if
+  the logic it explains changed;
+- [`docs/data-store/reference.md`](./docs/data-store/reference.md).
+
+`./demo.sh test` (in `demos/data-store/`) runs `check-page`, which compares the
+page with the live database and fails, showing the difference, while they
+disagree. Changes to logic that leave the shape alone (a function body, a
+rule) aren't caught by the check, so update the page's text for those by hand.
 
 ## License
 
