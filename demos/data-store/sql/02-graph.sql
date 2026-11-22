@@ -229,38 +229,63 @@ create view authz.group_user as
     join catalog.resource g on g.id = c.group_id
     join catalog.resource u on u.id = c.member_id and u.kind = 'user';
 
+-- Access grants are links too: platform admins and auditors, and kind-wide
+-- editors. This view names them in the relation vocabulary of the OpenFGA model.
+create view authz.access_grant as
+  select case l.name when 'admins' then 'admin' when 'auditors' then 'auditor' else 'editor' end as relation,
+         o.ref        as object_ref,
+         o.kind       as object_kind,
+         o.identifier as object_identifier,
+         p.ref        as principal_ref,
+         p.kind       as principal_kind
+    from catalog.link l
+    join catalog.resource o on o.id = l.from_id and o.deleted_at is null
+    join catalog.resource p on p.id = l.to_id and p.deleted_at is null
+   where l.applied
+     and ((o.kind = 'platform' and l.name in ('admins', 'auditors'))
+          or (o.kind = 'kind' and l.name = 'editors'));
+
+-- No temporary tables: each statement materialises the group closure in a CTE.
+-- (A temp table would belong to whichever role created it first in the
+-- transaction, and creating one per write churns the system catalog.)
 create function authz.refresh_memberships() returns void
 language plpgsql as $$
 begin
-  create temporary table if not exists pg_temp.gu (group_ref text, user_ref text) on commit drop;
-  truncate pg_temp.gu;
-  insert into pg_temp.gu select * from authz.group_user;
-
   delete from authz.user_team;
   insert into authz.user_team (user_ref, team_ref)
+  with gu as materialized (select * from authz.group_user)
   select distinct gu.user_ref, t.ref
     from catalog.resource t
     join catalog.link l     on l.from_id = t.id and l.name = 'backedBy' and l.applied
     join catalog.resource g on g.id = l.to_id and g.deleted_at is null
-    join pg_temp.gu gu      on gu.group_ref = g.ref
+    join gu                 on gu.group_ref = g.ref
    where t.kind = 'team' and t.deleted_at is null;
 
+  -- platform --admins/auditors--> user | identity_group
   delete from authz.user_role;
   insert into authz.user_role (user_ref, role)
-  select distinct coalesce(gu.user_ref, pg.principal_ref), pg.role
-    from authz.platform_grant pg
-    left join pg_temp.gu gu on gu.group_ref = pg.principal_ref
-   where pg.principal_ref like 'user:%' or gu.user_ref is not null;
+  with gu as materialized (select * from authz.group_user)
+  select distinct u.user_ref, ag.relation
+    from authz.access_grant ag
+    cross join lateral (
+      select ag.principal_ref as user_ref where ag.principal_kind = 'user'
+      union
+      select gu.user_ref from gu where gu.group_ref = ag.principal_ref
+    ) u
+   where ag.object_kind = 'platform';
 
+  -- kind --editors--> team | identity_group
   delete from authz.user_kind_grant;
   insert into authz.user_kind_grant (user_ref, kind_id, relation)
-  select distinct u.user_ref, kg.kind_id, kg.relation
-    from authz.kind_grant kg
+  with gu as materialized (select * from authz.group_user)
+  select distinct u.user_ref, ag.object_identifier, ag.relation
+    from authz.access_grant ag
     cross join lateral (
-      select ut.user_ref from authz.user_team ut where ut.team_ref = kg.principal_ref
+      select ut.user_ref from authz.user_team ut where ut.team_ref = ag.principal_ref
       union
-      select gu.user_ref from pg_temp.gu gu where gu.group_ref = kg.principal_ref
-    ) u;
+      select gu.user_ref from gu where gu.group_ref = ag.principal_ref
+    ) u
+   where ag.object_kind = 'kind';
 end $$;
 
 reset role;

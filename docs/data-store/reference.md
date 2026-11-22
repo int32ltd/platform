@@ -50,7 +50,10 @@ map onto database objects.
 | Mark-and-sweep, 20% drop guard | `catalog.ingestion_run`, `resource_source.stale_since`, `catalog.sweep()` |
 | Change log | `catalog.change_log` (partitioned by month) |
 | Message bus (`catalog.changes`) | outbox: `catalog.poll_changes()` / `catalog.ack_changes()` over the change log |
-| Platform admin / auditor, kind editor grants | `authz.platform_grant`, `authz.kind_grant` |
+| User, identity group, team | `catalog.resource` rows of kinds `user`, `identity_group`, `team` |
+| Group membership, team backing groups | `members` and `backedBy` links |
+| Platform admin / auditor | `admins` / `auditors` links from the resource `platform:default` |
+| Kind editor grant | `editors` links from the kind's resource (`kind:<id>`) |
 | `effectiveOwners ∩ userTeams` query filter | `api.resource`, using `authz.user_team` |
 | OpenFGA tuples | `authz.fga_tuples` view |
 | `POST /context` | `api.context()` |
@@ -64,7 +67,6 @@ erDiagram
   kind ||--o{ link_type : declares
   kind ||--o{ resource : "is instance of"
   kind ||--o{ property_claim : ""
-  kind ||--o{ kind_grant : ""
   source ||--o{ property_claim : claims
   source ||--o{ resource_source : observes
   source ||--o{ link : asserts
@@ -129,16 +131,17 @@ erDiagram
   }
 ```
 
-The `authz` tables (`platform_grant`, `kind_grant`, `user_team`, `user_role`,
-`user_kind_grant`) and `catalog.consumer` reference resources by `ref` and
-have no foreign keys into the diagram.
+The `authz` tables (`user_team`, `user_role`, `user_kind_grant`) and
+`catalog.consumer` reference resources by `ref` and have no foreign keys into
+the diagram. There are no tables for users, groups, teams or grants: they are
+resources and links like everything else.
 
 ## Schemas and roles
 
 | Schema | Holds | Who writes it |
 |---|---|---|
 | `catalog` | the facts: kinds, sources, resources, links, provenance, change log, scorecard results | the write functions only |
-| `authz` | grants that are facts (`platform_grant`, `kind_grant`) and projections derived from the graph (`user_team`, `user_role`, `user_kind_grant`) | grants: platform admins through git; projections: `authz.refresh_memberships()` only |
+| `authz` | access projections derived from links (`user_team`, `user_role`, `user_kind_grant`) and the views they are built from (`group_user`, `access_grant`, `fga_tuples`). No facts. | `authz.refresh_memberships()` only |
 | `api` | views and functions the catalog service's request path reads | nobody (no tables) |
 
 | Role | Login | Privileges |
@@ -196,6 +199,7 @@ is granted. Entry points other roles call are `security definer` with
 | `many` | `boolean` | `false`: at most one applied target |
 | `required` | `boolean` | informational; not enforced (a required owner may be inherited) |
 | `ownership` | `catalog.link_ownership` | null, `grants` or `inherits` |
+| `privileged` | `boolean` | the link grants access (`members`, `backedBy`, `admins`, `auditors`, `editors`). Changing one through `api.update` needs `can_transfer`, and any change rebuilds the access projections |
 
 Unique partial index `link_type_one_grant`: at most one `grants` link per kind.
 
@@ -351,14 +355,27 @@ not evaluate expressions.
 
 | Table | Columns | Kind |
 |---|---|---|
-| `authz.platform_grant` | `role` (`admin` \| `auditor`), `principal_ref` (`user:` or `identity_group:`) | fact |
-| `authz.kind_grant` | `kind_id`, `relation` (`editor`), `principal_ref` (`team:` or `identity_group:`) | fact |
 | `authz.user_team` | `user_ref`, `team_ref` | derived: user is a member of a group (directly or nested) that backs the team |
-| `authz.user_role` | `user_ref`, `role` | derived from `platform_grant` |
-| `authz.user_kind_grant` | `user_ref`, `kind_id`, `relation` | derived from `kind_grant` |
+| `authz.user_role` | `user_ref`, `role` | derived from `admins`/`auditors` links on `platform:default` |
+| `authz.user_kind_grant` | `user_ref`, `kind_id`, `relation` | derived from `editors` links on kind resources |
 
 `authz.group_user` (view): the transitive closure of `identity_group.members`
 links, as `(group_ref, user_ref)`, live resources only.
+
+`authz.access_grant` (view): every grant link, renamed into OpenFGA relations,
+as `(relation, object_ref, object_kind, object_identifier, principal_ref,
+principal_kind)`. `platform --admins-->` becomes `admin`,
+`platform --auditors-->` becomes `auditor`, `kind --editors-->` becomes `editor`.
+
+Built-in kinds for people and access:
+
+| Kind | Links |
+|---|---|
+| `user` | none (the identity provider owns it) |
+| `identity_group` | `members → user \| identity_group` (many, privileged) |
+| `team` | `backedBy → identity_group` (many, privileged) |
+| `platform` | `admins → user \| identity_group`, `auditors → user \| identity_group` (many, privileged); one resource, `platform:default` |
+| `kind` | `editors → team \| identity_group` (many, privileged), on each kind's resource |
 
 ## Write functions
 
@@ -403,8 +420,8 @@ Steps, in one transaction:
 7. Bump `version` and log, if anything changed.
 8. If an ownership link changed or the resource was created or restored:
    `catalog.recompute_owners`.
-9. If `identity_group.members` or `team.backedBy` changed:
-   `authz.refresh_memberships`.
+9. If a privileged link changed (`members`, `backedBy`, `admins`,
+   `auditors`, `editors`): `authz.refresh_memberships`.
 
 ### `catalog.retract`
 
@@ -442,7 +459,7 @@ consumers can wait on `LISTEN` instead of polling on a timer.
 
 | Function | Behaviour |
 |---|---|
-| `catalog.define_kind(doc jsonb, actor text = 'git')` | upserts `kind` and its `link_type` rows from a kind document (the YAML in the [catalog reference](../service-catalog/reference.md#kinds), as JSON; `sensitive`, `materialiseOnReference`, `staleAfter` added), removes undeclared links, and ingests `kind:<id>` |
+| `catalog.define_kind(doc jsonb, actor text = 'git')` | upserts `kind` and its `link_type` rows from a kind document (the YAML in the [catalog reference](../service-catalog/reference.md#kinds), as JSON; `sensitive`, `materialiseOnReference`, `staleAfter`, per-link `privileged` added), removes undeclared links, and ingests `kind:<id>`. An optional `editors` list becomes that resource's `editors` links. |
 | `catalog.define_source(doc jsonb, actor text = 'git')` | upserts `source` and its `property_claim` rows (`writes.kinds`, `writes.ownsProperties`, optional `writes.priority.<kind>`), and ingests `source:<id>` |
 
 ## Derivation functions
@@ -454,7 +471,7 @@ consumers can wait on `LISTEN` instead of polling on a timer.
 | `catalog.resolve_owners(resource_id) → text[]` | distinct sorted owners from `owner_paths`; `{}` is unowned |
 | `catalog.recompute_owners(resource_id, actor_type, actor, reason) → int` | reverse walk from the resource over `grants`/`inherits` links; for each live dependent whose `resolve_owners` differs from `effective_owners`, update and log `op = owners`. Returns the number changed. |
 | `catalog.apply_single_link(from_id, name)` | re-applies precedence for a `many: false` link |
-| `authz.refresh_memberships()` | rebuilds `user_team`, `user_role` and `user_kind_grant` from `authz.group_user`, `team.backedBy` links and the grant tables |
+| `authz.refresh_memberships()` | rebuilds `user_team`, `user_role` and `user_kind_grant` from links only: `authz.group_user`, `team.backedBy` and `authz.access_grant`. Each statement materialises the group closure in a CTE (no temporary tables) |
 
 Triggers:
 
@@ -477,8 +494,8 @@ Visibility, for the current `catalog.viewer`:
 |---|---|
 | row visible | not tombstoned, and (`effective_owners && viewer's teams` or kind in *readable kinds*) |
 | full properties | `effective_owners && viewer's teams` or kind in *privileged kinds* |
-| readable kinds | `visibility = org` kinds, kinds the viewer has a `kind_grant` on, and every kind for platform admins and auditors. Empty when there is no live viewer. |
-| privileged kinds | kinds the viewer has a `kind_grant` on, and every kind for platform admins and auditors |
+| readable kinds | `visibility = org` kinds, kinds whose `editors` include the viewer, and every kind for platform admins and auditors. Empty when there is no live viewer. |
+| privileged kinds | kinds whose `editors` include the viewer, and every kind for platform admins and auditors |
 
 | Column | Notes |
 |---|---|
@@ -508,7 +525,7 @@ Visibility, for the current `catalog.viewer`:
 | `api.who_owns(ref)` | `(owner, path)` per owner, e.g. `aws_rds_instance:… --component--> component:… --owner--> team:payments`; path steps the viewer cannot see are shown as `(hidden)` |
 | `api.context(focus text[], depth = 2, max_resources = 60)` | `jsonb`: `{ focus, truncated, resources: [{ref, title, depth, owners, properties, redacted, freshness}], links: [{from, link, to}] }`. The neighbourhood is walked in both directions over `api.link`, nearest first, cut at `max_resources`. |
 | `api.changes_since(ts)` | `api.change` rows after `ts` |
-| `api.update(ref, properties = '{}', links = '{}', reason = null)` | the updated `api.resource` row. Requires a live viewer and `can_edit`; touching the kind's `grants` link also requires `can_transfer`. Properties claimed by a source are rejected (`42501`). Writes through `catalog.ingest` as `manual` with `actor = user:<viewer>`. |
+| `api.update(ref, properties = '{}', links = '{}', reason = null)` | the updated `api.resource` row. Requires a live viewer and `can_edit`; touching the kind's `grants` link or any privileged link also requires `can_transfer`. Properties claimed by a source are rejected (`42501`). Writes through `catalog.ingest` as `manual` with `actor = user:<viewer>`. |
 
 Permission helpers, callable by `catalog_api`: `authz.viewer()`,
 `authz.viewer_teams()`, `authz.viewer_is(role)`, `authz.viewer_readable_kinds()`,
@@ -533,12 +550,12 @@ should have written to OpenFGA:
 |---|---|
 | `identity_group:G#member@user:U`, `identity_group:G#member@identity_group:H#member` | applied `members` links (nesting kept) |
 | `team:T#backed_by@identity_group:G` | applied `backedBy` links |
-| `resource:<kind>/<identifier>#kind@kind:<kind>` | every live resource except users, groups and teams |
+| `resource:<kind>/<identifier>#kind@kind:<kind>` | every live resource except users, groups, teams and the platform (each its own OpenFGA type) |
 | `resource:<kind>/<identifier>#owner@team:T` | one per entry in `effective_owners` |
 | `kind:K#platform@platform:default` | every kind |
 | `kind:K#org_viewer@user:*` | kinds with `visibility = org` |
-| `kind:K#editor@<principal>#member` | `authz.kind_grant` |
-| `platform:default#admin@…`, `#auditor@…` | `authz.platform_grant` |
+| `kind:K#editor@<principal>#member` | `editors` links on `kind:K` (via `authz.access_grant`) |
+| `platform:default#admin@…`, `#auditor@…` | `admins` / `auditors` links on `platform:default` (via `authz.access_grant`) |
 
 The `openfga-sync` consumer polls the change log, and after each batch writes
 the difference between this view and what it last wrote. The nightly
@@ -567,6 +584,11 @@ Checked by [`demos/data-store/test.sql`](../../demos/data-store/test.sql):
    ownership from its dependents; re-ingesting restores both.
 10. The resolver terminates on cycles and stops at 6 hops.
 11. A full run far below its baseline is held and marks nothing stale.
+12. Grants are links: an `editors` link gives access, is in the change log
+    and the OpenFGA tuples, and removing it removes the access; removing the
+    `admins` link removes admin.
+13. A team member cannot change their own team's `backedBy` (privileged);
+    a platform admin can.
 
 ## Sizing and indexes
 

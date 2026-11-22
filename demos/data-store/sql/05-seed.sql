@@ -18,11 +18,19 @@ insert into catalog.source (id, connector, writes_kinds)
 values ('manual', 'manual', array['kind', 'source']);
 
 select catalog.define_kind('{"identifier": "kind", "title": "Kind", "builtIn": true, "visibility": "org",
-  "description": "A kind definition"}');
+  "description": "A kind definition",
+  "links": {"editors": {"target": ["team", "identity_group"], "many": true, "privileged": true}}}');
 select catalog.define_kind('{"identifier": "source", "title": "Source", "builtIn": true,
   "description": "An ingestion source and its mapping"}');
 select catalog.define_kind('{"identifier": "scorecard", "title": "Scorecard", "builtIn": true, "visibility": "org"}');
 select catalog.define_kind('{"identifier": "action", "title": "Action", "builtIn": true, "visibility": "org"}');
+
+-- The platform itself is a resource. Who administers or audits it is a link,
+-- like any other relationship in the graph.
+select catalog.define_kind('{"identifier": "platform", "title": "Platform", "builtIn": true, "visibility": "org",
+  "description": "The platform; its admins and auditors",
+  "links": {"admins":   {"target": ["user", "identity_group"], "many": true, "privileged": true},
+            "auditors": {"target": ["user", "identity_group"], "many": true, "privileged": true}}}');
 
 select catalog.define_kind('{
   "identifier": "user", "title": "User", "builtIn": true, "visibility": "org",
@@ -33,7 +41,7 @@ select catalog.define_kind('{
 select catalog.define_kind('{
   "identifier": "identity_group", "title": "Identity group", "builtIn": true, "visibility": "org",
   "schema": {"properties": {"provider": {"type": "string"}, "objectId": {"type": "string"}}},
-  "links": {"members": {"target": ["user", "identity_group"], "many": true}},
+  "links": {"members": {"target": ["user", "identity_group"], "many": true, "privileged": true}},
   "staleAfter": "1 day"}');
 
 select catalog.define_kind('{
@@ -42,7 +50,7 @@ select catalog.define_kind('{
   "schema": {"properties": {"orgUnitId": {"type": "string"}, "costCentre": {"type": "string"},
              "manager": {"type": "string"}, "slack": {"type": "string"}, "oncallRota": {"type": "string"}}},
   "sensitive": ["costCentre"],
-  "links": {"backedBy": {"target": "identity_group", "many": true}},
+  "links": {"backedBy": {"target": "identity_group", "many": true, "privileged": true}},
   "identity": {"keys": ["orgUnitId"]}}');
 
 select catalog.define_kind('{
@@ -91,7 +99,7 @@ select catalog.define_kind('{
 -- writes.ownsProperties is which property values it is authoritative for.
 -- -----------------------------------------------------------------------------
 select catalog.define_source('{"identifier": "manual", "connector": "manual",
-  "writes": {"kinds": ["kind", "source", "scorecard", "action", "team", "system", "component",
+  "writes": {"kinds": ["kind", "source", "platform", "scorecard", "action", "team", "system", "component",
                        "repository", "k8s_workload", "aws_sqs_queue", "aws_rds_instance"]}}');
 
 select catalog.define_source('{"identifier": "entra-id", "connector": "entra-id", "freshnessSlo": "5 minutes",
@@ -132,12 +140,6 @@ select catalog.define_source('{"identifier": "aws-prod-4711", "connector": "aws"
              "ownsProperties": {"aws_sqs_queue": ["region", "account", "messagesVisible", "tags"],
                                 "aws_rds_instance": ["region", "engine", "instanceClass", "multiAZ", "tags"]}}}');
 
--- -----------------------------------------------------------------------------
--- Grants that are facts, not derivations: who administers the platform.
--- -----------------------------------------------------------------------------
-insert into authz.platform_grant (role, principal_ref)
-values ('admin', 'identity_group:platform-engineering');
-
 insert into catalog.consumer (name) values ('openfga-sync'), ('scorecards'), ('search-indexer');
 
 -- -----------------------------------------------------------------------------
@@ -159,6 +161,12 @@ select catalog.ingest('entra-id', 'identity_group', g.id, g.id,
                ('eng-search',           '9dd0…c73', '["user:carol", "user:dave"]'),
                ('payments-contractors', '4a55…1fe', '["user:dave"]'),
                ('platform-engineering', '11ab…9c2', '["user:frank"]')) g(id, oid, members);
+
+-- Who administers the platform: a link from platform:default to a group,
+-- written through git like any other catalog-owned fact.
+select catalog.ingest('manual', 'platform', 'default', 'Platform', '{}',
+                      '{"admins": ["identity_group:platform-engineering"]}',
+                      p_actor_type => 'system', p_actor => 'git');
 
 -- -----------------------------------------------------------------------------
 -- 2. Teams: HR owns the record, the identity provider the backing groups (by

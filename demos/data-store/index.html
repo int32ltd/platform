@@ -285,7 +285,7 @@
 {
   "schemas": {
     "catalog": { "title": "catalog", "about": "the facts: kinds, sources, resources, links, provenance, change log" },
-    "authz":   { "title": "authz",   "about": "grants that are facts, and access projections derived from the graph" },
+    "authz":   { "title": "authz",   "about": "access projections derived from links; no facts of their own" },
     "api":     { "title": "api",     "about": "the only surface the catalog service's read role can query" }
   },
   "tables": [
@@ -309,7 +309,8 @@
       "indexes": ["primary key (id)"],
       "rules": [
         "Each kind is also a resource of kind <code>kind</code> (for example <code>kind:component</code>), so schema changes go through the same audit trail and change log as everything else.",
-        "This table is the typed projection the write path validates against; <code>define_kind</code> keeps both in step."
+        "This table is the typed projection the write path validates against; <code>define_kind</code> keeps both in step.",
+        "Kind-wide edit grants are links on the kind's resource: <code>kind:aws_rds_instance --editors--> team:dba</code>. There is no grant table."
       ],
       "writtenBy": ["catalog.define_kind"],
       "readBy": ["catalog.ingest", "catalog.link_validate", "api.kind", "authz.viewer_readable_kinds"]
@@ -323,13 +324,15 @@
         { "name": "target_kinds", "type": "text[]", "note": "allowed target kinds" },
         { "name": "many", "type": "boolean", "note": "false: at most one applied target" },
         { "name": "required", "type": "boolean", "note": "informational; an owner may be inherited" },
-        { "name": "ownership", "type": "link_ownership", "note": "grants, inherits or null" }
+        { "name": "ownership", "type": "link_ownership", "note": "grants, inherits or null" },
+        { "name": "privileged", "type": "boolean", "note": "the link grants access: members, backedBy, admins, auditors, editors" }
       ],
       "indexes": ["primary key (kind_id, name)", "link_type_one_grant: unique (kind_id) where ownership = 'grants'"],
       "rules": [
         "<b>grants</b> names the owner directly (component.owner → team).",
         "<b>inherits</b> lets a resource take its owner from what it points at (k8s_workload.component, component.system).",
-        "At most one <b>grants</b> link per kind, enforced by a partial unique index."
+        "At most one <b>grants</b> link per kind, enforced by a partial unique index.",
+        "<b>privileged</b> marks links that decide who can access what. Changing one through the API needs <code>can_transfer</code>, like changing an owner, so a team member cannot put another group behind their own team. A change to one also rebuilds the access projections."
       ],
       "writtenBy": ["catalog.define_kind"],
       "readBy": ["catalog.link_validate", "catalog.owner_paths", "catalog.recompute_owners", "catalog.ingest"]
@@ -426,7 +429,8 @@
         "One generic table with <code>jsonb</code> properties, not a table per kind, because kinds are data and a new kind must not need DDL.",
         "<code>properties</code> is never written directly. It is recomputed from <code>resource_source.observed</code> on every write.",
         "<code>effective_owners</code> is materialised so the visibility check is an indexed array overlap, not a graph walk per row.",
-        "A team owns itself, so its members see its sensitive properties."
+        "A team owns itself, so its members see its sensitive properties.",
+        "Users, identity groups, teams and the platform itself are rows here too, with kinds <code>user</code>, <code>identity_group</code>, <code>team</code> and <code>platform</code>. Who belongs to what and who administers what are links between them, never separate tables."
       ],
       "writtenBy": ["catalog.ingest", "catalog.retract", "catalog.recompute_owners"],
       "readBy": ["api.resource", "catalog.owner_paths", "authz.fga_tuples", "api.search"]
@@ -552,27 +556,22 @@
       "readBy": ["catalog.poll_changes"]
     },
     {
-      "id": "authz.platform_grant", "kind": "table", "col": 3, "file": "01-schema.sql",
-      "purpose": "Who administers or audits the whole platform. A fact, kept in git.",
+      "id": "authz.access_grant", "kind": "view", "col": 3, "file": "02-graph.sql",
+      "purpose": "Every access grant, read straight from links: platform admins and auditors, and kind-wide editors.",
       "columns": [
-        { "name": "role", "type": "text", "key": "PK", "note": "admin or auditor" },
-        { "name": "principal_ref", "type": "text", "key": "PK", "note": "user: or identity_group:" }
+        { "name": "relation", "type": "text", "note": "admin, auditor or editor" },
+        { "name": "object_ref", "type": "text", "note": "platform:default or kind:<id>" },
+        { "name": "object_kind", "type": "text", "note": "platform or kind" },
+        { "name": "object_identifier", "type": "text", "note": "for kind grants, the kind being granted" },
+        { "name": "principal_ref", "type": "text", "note": "user, identity_group or team" },
+        { "name": "principal_kind", "type": "text" }
       ],
-      "indexes": ["primary key (role, principal_ref)"],
-      "rules": ["Admins see everything and hold can_transfer; auditors read everything and change nothing."],
-      "writtenBy": [],
-      "readBy": ["authz.refresh_memberships", "authz.fga_tuples"]
-    },
-    {
-      "id": "authz.kind_grant", "kind": "table", "col": 3, "file": "01-schema.sql",
-      "purpose": "Rare kind-wide grants: a team or group that may edit every resource of a kind.",
-      "columns": [
-        { "name": "kind_id", "type": "text", "key": "PK", "fk": "catalog.kind" },
-        { "name": "relation", "type": "text", "key": "PK", "note": "editor" },
-        { "name": "principal_ref", "type": "text", "key": "PK", "note": "team: or identity_group:" }
+      "indexes": [],
+      "rules": [
+        "Grants are not a separate store. <code>platform:default --admins--> identity_group:platform-engineering</code> is an ordinary link, ingested, merged and logged like any other.",
+        "This view only renames those links into the relation vocabulary of the OpenFGA model (admin, auditor, editor).",
+        "Admins see everything and hold can_transfer; auditors read everything and change nothing; kind editors can edit every resource of one kind."
       ],
-      "indexes": ["primary key (kind_id, relation, principal_ref)"],
-      "rules": ["There are no per-resource ACLs. Kind grants are the only way to reach resources you do not own."],
       "writtenBy": [],
       "readBy": ["authz.refresh_memberships", "authz.fga_tuples"]
     },
@@ -597,7 +596,7 @@
       ],
       "indexes": ["primary key (user_ref, team_ref)", "user_team_team (team_ref)"],
       "rules": [
-        "Rebuilt in the same transaction as any change to <code>members</code> or <code>backedBy</code>, so offboarding takes effect when the delta sync commits.",
+        "Rebuilt in the same transaction as any change to a privileged link (<code>members</code>, <code>backedBy</code>, <code>admins</code>, <code>auditors</code>, <code>editors</code>), so offboarding takes effect when the delta sync commits.",
         "Never written by hand. The nightly consistency check compares the result with OpenFGA's evaluation of the tuples."
       ],
       "writtenBy": ["authz.refresh_memberships"],
@@ -605,7 +604,7 @@
     },
     {
       "id": "authz.user_role", "kind": "table", "col": 3, "file": "01-schema.sql",
-      "purpose": "Derived: platform roles per user, from platform_grant and group membership.",
+      "purpose": "Derived: platform roles per user, from the admins/auditors links on platform:default and group membership.",
       "columns": [
         { "name": "user_ref", "type": "text", "key": "PK" },
         { "name": "role", "type": "text", "key": "PK" }
@@ -617,7 +616,7 @@
     },
     {
       "id": "authz.user_kind_grant", "kind": "table", "col": 3, "file": "01-schema.sql",
-      "purpose": "Derived: kind-wide grants per user, from kind_grant and membership.",
+      "purpose": "Derived: kind-wide grants per user, from editors links on kind resources and membership.",
       "columns": [
         { "name": "user_ref", "type": "text", "key": "PK" },
         { "name": "kind_id", "type": "text", "key": "PK" },
@@ -741,15 +740,16 @@
     { "from": "catalog.scorecard_result", "to": "catalog.resource", "type": "fk" },
     { "from": "catalog.scorecard_history", "to": "catalog.resource", "type": "logical" },
     { "from": "catalog.change_log", "to": "catalog.resource", "type": "logical" },
-    { "from": "authz.kind_grant", "to": "catalog.kind", "type": "fk" },
     { "from": "catalog.resource_source", "to": "catalog.resource", "type": "derived", "label": "merge → properties" },
     { "from": "catalog.link", "to": "catalog.resource", "type": "derived", "label": "resolver → effective_owners" },
     { "from": "catalog.resource", "to": "catalog.change_log", "type": "derived", "label": "every write" },
     { "from": "catalog.change_log", "to": "catalog.consumer", "type": "derived", "label": "poll / ack" },
     { "from": "catalog.link", "to": "authz.group_user", "type": "derived", "label": "members" },
     { "from": "authz.group_user", "to": "authz.user_team", "type": "derived", "label": "+ backedBy" },
-    { "from": "authz.platform_grant", "to": "authz.user_role", "type": "derived" },
-    { "from": "authz.kind_grant", "to": "authz.user_kind_grant", "type": "derived" },
+    { "from": "catalog.link", "to": "authz.access_grant", "type": "derived", "label": "admins, auditors, editors" },
+    { "from": "authz.access_grant", "to": "authz.user_role", "type": "derived" },
+    { "from": "authz.access_grant", "to": "authz.user_kind_grant", "type": "derived" },
+    { "from": "authz.access_grant", "to": "authz.fga_tuples", "type": "derived" },
     { "from": "catalog.resource", "to": "authz.fga_tuples", "type": "derived", "label": "owner, kind" },
     { "from": "catalog.link", "to": "authz.fga_tuples", "type": "derived" },
     { "from": "catalog.resource", "to": "api.resource", "type": "derived" },
@@ -817,8 +817,8 @@
     { "id": "catalog.jsonb_diff", "file": "02-graph.sql", "sig": "jsonb_diff(a jsonb, b jsonb) → jsonb",
       "does": "{ key: { from, to } } for every key whose value differs.", "touches": [] },
     { "id": "authz.refresh_memberships", "file": "02-graph.sql", "sig": "refresh_memberships()",
-      "does": "Rebuilds user_team, user_role and user_kind_grant from nested group membership, backedBy links and the grant tables.",
-      "touches": ["authz.group_user", "authz.user_team", "authz.user_role", "authz.user_kind_grant", "authz.platform_grant", "authz.kind_grant"] },
+      "does": "Rebuilds user_team, user_role and user_kind_grant from links alone: nested group membership, backedBy, and the admins/auditors/editors grants. Each statement materialises the group closure in a CTE; no temporary tables.",
+      "touches": ["authz.group_user", "authz.access_grant", "authz.user_team", "authz.user_role", "authz.user_kind_grant"] },
     { "id": "authz.viewer", "file": "04-access.sql", "sig": "viewer() → text",
       "does": "The current catalog.viewer, if it is a live user resource; otherwise null.", "touches": ["catalog.resource"] },
     { "id": "authz.viewer_teams", "file": "04-access.sql", "sig": "viewer_teams() → text[]", "does": "The viewer's teams.", "touches": ["authz.user_team"] },
@@ -843,7 +843,7 @@
       "touches": ["api.resource", "api.link"] },
     { "id": "api.changes_since", "file": "04-access.sql", "sig": "changes_since(ts) → setof api.change", "does": "Visible history after a timestamp.", "touches": ["api.change"] },
     { "id": "api.update", "file": "04-access.sql", "sig": "update(ref, properties?, links?, reason?) → setof api.resource",
-      "does": "A manual edit on behalf of the viewer: needs can_edit, and can_transfer for the owner link; rejects source-claimed properties; writes through catalog.ingest as manual.",
+      "does": "A manual edit on behalf of the viewer: needs can_edit, and can_transfer for the owner link or any privileged (access-granting) link; rejects source-claimed properties; writes through catalog.ingest as manual.",
       "touches": ["api.resource", "catalog.property_claim", "catalog.link_type"] }
   ],
   "tour": [
@@ -859,9 +859,9 @@
     { "title": "Ownership is computed",
       "focus": ["catalog.link", "catalog.link_type", "catalog.resource"],
       "body": "<p><code>owner_paths</code> follows <b>grants</b> and <b>inherits</b> links: RDS instance → component → team. The result is stored in <code>effective_owners</code>.</p><p>When an ownership link changes, <code>recompute_owners</code> walks backwards and updates every dependent <b>in the same transaction</b>, so access is never stale.</p>" },
-    { "title": "Membership, flattened once",
-      "focus": ["catalog.link", "authz.group_user", "authz.user_team", "authz.platform_grant", "authz.user_role", "authz.kind_grant", "authz.user_kind_grant"],
-      "body": "<p>Groups stay nested as the identity provider asserts them. <code>refresh_memberships</code> flattens them into <code>user_team</code> whenever <code>members</code> or <code>backedBy</code> change.</p><p>Remove someone from a group, and the next delta sync takes away their access when it commits.</p>" },
+    { "title": "People and access are part of the graph",
+      "focus": ["catalog.resource", "catalog.link", "authz.group_user", "authz.access_grant", "authz.user_team", "authz.user_role", "authz.user_kind_grant"],
+      "body": "<p>Users, groups, teams and the platform itself are ordinary resources. Membership and grants are ordinary links: <code>members</code>, <code>backedBy</code>, <code>admins</code>, <code>auditors</code>, <code>editors</code>. They are ingested, merged and logged like everything else.</p><p>Those links are <b>privileged</b>: changing one needs <code>can_transfer</code>, and it rebuilds the <code>authz</code> tables in the same transaction. Those tables are only a cache of what OpenFGA computes from the same links.</p>" },
     { "title": "One view decides visibility",
       "focus": ["api.resource", "authz.user_team", "authz.user_role", "authz.user_kind_grant", "catalog.resource", "api.link", "api.change"],
       "body": "<p>The service role reads only <code>api.*</code>. <code>api.resource</code> holds the rule: rows where <code>effective_owners</code> overlaps the viewer's teams, or the kind is readable to them. Sensitive keys are redacted for everyone else.</p><p><code>api.link</code> and <code>api.change</code> are built on it, so edges and history never leak a hidden resource.</p>" },

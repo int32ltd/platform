@@ -165,8 +165,7 @@ begin
         'added',   to_jsonb(array(select unnest(v_targets) except select unnest(v_old))),
         'removed', to_jsonb(array(select unnest(v_old) except select unnest(v_targets)))));
       v_owners_dirty := v_owners_dirty or v_lt.ownership is not null;
-      v_membership_dirty := v_membership_dirty
-        or (p_kind, v_name) in (('identity_group', 'members'), ('team', 'backedBy'));
+      v_membership_dirty := v_membership_dirty or v_lt.privileged;   -- access-bearing link
     end if;
   end loop;
   if v_links_diff <> '{}' then
@@ -207,7 +206,7 @@ begin
   if v_owners_dirty or v_op <> 'update' then
     perform catalog.recompute_owners(v_res.id, p_actor_type, v_actor, coalesce(p_reason, 'ownership path changed'));
   end if;
-  if v_membership_dirty or (v_op = 'restore' and p_kind in ('user', 'identity_group', 'team')) then
+  if v_membership_dirty or (v_op = 'restore' and p_kind in ('user', 'identity_group', 'team', 'platform', 'kind')) then
     perform authz.refresh_memberships();
   end if;
 
@@ -260,7 +259,7 @@ begin
   end if;
 
   perform catalog.recompute_owners(v_res.id, p_actor_type, v_actor, coalesce(p_reason, format('%s retracted', p_ref)));
-  if v_res.kind in ('user', 'identity_group', 'team') then
+  if v_res.kind in ('user', 'identity_group', 'team', 'platform', 'kind') then
     perform authz.refresh_memberships();
   end if;
   return true;
@@ -418,20 +417,26 @@ begin
   delete from catalog.link_type
    where kind_id = v_id and not name in (select jsonb_object_keys(coalesce(p_doc -> 'links', '{}')));
   for v_link in select key, value from jsonb_each(coalesce(p_doc -> 'links', '{}')) loop
-    insert into catalog.link_type (kind_id, name, target_kinds, many, required, ownership)
+    insert into catalog.link_type (kind_id, name, target_kinds, many, required, ownership, privileged)
     values (v_id, v_link.key,
             case jsonb_typeof(v_link.value -> 'target')
               when 'array' then array(select jsonb_array_elements_text(v_link.value -> 'target'))
               else array[v_link.value ->> 'target'] end,
             coalesce((v_link.value ->> 'many')::boolean, false),
             coalesce((v_link.value ->> 'required')::boolean, false),
-            (v_link.value ->> 'ownership')::catalog.link_ownership)
+            (v_link.value ->> 'ownership')::catalog.link_ownership,
+            coalesce((v_link.value ->> 'privileged')::boolean, false))
     on conflict (kind_id, name) do update
        set target_kinds = excluded.target_kinds, many = excluded.many,
-           required = excluded.required, ownership = excluded.ownership;
+           required = excluded.required, ownership = excluded.ownership,
+           privileged = excluded.privileged;
   end loop;
 
-  perform catalog.ingest('manual', 'kind', v_id, p_doc ->> 'title', jsonb_build_object('definition', p_doc),
+  -- Kind-wide editors are links on the kind's own resource, so granting them
+  -- is an audited catalog write like any other. Left alone unless the
+  -- document names them.
+  perform catalog.ingest('manual', 'kind', v_id, p_doc ->> 'title', jsonb_build_object('definition', p_doc - 'editors'),
+                         case when p_doc ? 'editors' then jsonb_build_object('editors', p_doc -> 'editors') else '{}' end,
                          p_actor_type => 'system', p_actor => p_actor);
 end $$;
 

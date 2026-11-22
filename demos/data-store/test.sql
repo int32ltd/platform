@@ -72,7 +72,7 @@ begin
   for u in select ref from catalog.resource where kind = 'user' and deleted_at is null loop
     perform set_config('catalog.viewer', u, true);
     execute 'set local role catalog_api';
-    insert into sql_view select u, ref from api.resource where kind not in ('user', 'identity_group', 'team');
+    insert into sql_view select u, ref from api.resource where kind not in ('user', 'identity_group', 'team', 'platform');
     execute 'reset role';
   end loop;
 end $$;
@@ -248,6 +248,66 @@ do $$ begin
   assert (select effective_owners from catalog.resource where ref = 'test_node:a') = '{}', 'cycle resolved to an owner';
   assert (select effective_owners from catalog.resource where ref = 'test_node:n1') = '{team:payments}', '6 hops should resolve';
   assert (select effective_owners from catalog.resource where ref = 'test_node:n0') = '{}', '7 hops should not resolve';
+end $$;
+
+-- ---------------------------------------------------------------------------
+\echo 'access grants are links: a kind editor grant gives access, is logged, and can be revoked'
+select catalog.ingest('manual', 'kind', 'aws_sqs_queue', null, '{}', '{"editors": ["team:search"]}',
+                      p_actor_type => 'system', p_actor => 'git', p_reason => 'test grant');
+set local role catalog_api;
+set local catalog.viewer = 'user:carol';
+do $$ begin
+  assert exists (select 1 from api.resource where ref = 'aws_sqs_queue:prod-4711/checkout-events' and sensitive_visible),
+    'kind editor grant did not give carol access';
+end $$;
+reset role;
+do $$ begin
+  assert exists (select 1 from catalog.change_log
+                  where resource_ref = 'kind:aws_sqs_queue' and reason = 'test grant' and diff ? 'links'),
+    'grant not in the change log';
+  assert exists (select 1 from authz.fga_tuples
+                  where object = 'kind:aws_sqs_queue' and relation = 'editor' and subject = 'team:search#member'),
+    'grant not projected to OpenFGA';
+end $$;
+select catalog.ingest('manual', 'kind', 'aws_sqs_queue', null, '{}', '{"editors": null}',
+                      p_actor_type => 'system', p_actor => 'git');
+set local role catalog_api;
+set local catalog.viewer = 'user:carol';
+do $$ begin
+  assert not exists (select 1 from api.resource where ref = 'aws_sqs_queue:prod-4711/checkout-events'),
+    'revoked kind editor grant still gives access';
+end $$;
+reset role;
+
+\echo 'platform admins come from the admins link on platform:default'
+select catalog.ingest('manual', 'platform', 'default', null, '{}', '{"admins": null}');
+do $$ begin
+  assert not exists (select 1 from authz.user_role where user_ref = 'user:frank'), 'frank kept admin after the link was removed';
+end $$;
+select catalog.ingest('manual', 'platform', 'default', null, '{}', '{"admins": ["identity_group:platform-engineering"]}');
+do $$ begin
+  assert exists (select 1 from authz.user_role where user_ref = 'user:frank' and role = 'admin'), 'admin not restored';
+end $$;
+
+\echo 'access-granting links are privileged: team members cannot change their own team''s backing groups'
+set local role catalog_api;
+set local catalog.viewer = 'user:alice';
+do $$ begin
+  begin
+    perform api.update('team:payments', p_links => '{"backedBy": ["identity_group:eng-payments", "identity_group:eng-search"]}');
+    assert false, 'alice widened her own team';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+set local catalog.viewer = 'user:frank';
+select 1 from api.update('team:payments', p_links => '{"backedBy": ["identity_group:eng-payments", "identity_group:eng-search"]}');
+do $$ begin
+  assert exists (select 1 from api.resource where ref = 'aws_rds_instance:prod-4711/checkout-db'), 'admin lost sight of resources';
+end $$;
+reset role;
+do $$ begin
+  assert exists (select 1 from authz.user_team where user_ref = 'user:carol' and team_ref = 'team:payments'),
+    'admin-approved backing group did not grant membership';
 end $$;
 
 -- ---------------------------------------------------------------------------
